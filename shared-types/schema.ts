@@ -33,14 +33,14 @@ export const superAdmins = pgTable("super_admins", {
 
 export const categories = pgTable("categories", {
   id: serial("id").primaryKey(),
-  name: text("name").notNull(),
+  name: text("name").notNull().unique(),
   description: text("description"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
 export const products = pgTable("products", {
   id: serial("id").primaryKey(),
-  name: text("name").notNull(),
+  name: text("name").notNull().unique(),
   description: text("description"),
   price: decimal("price", { precision: 10, scale: 2 }).notNull(),
   categoryId: integer("category_id").references(() => categories.id),

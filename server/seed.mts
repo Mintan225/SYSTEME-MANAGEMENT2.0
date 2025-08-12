@@ -24,7 +24,7 @@ async function seed() {
     for (const category of defaultCategories) {
       await db.insert(categories)
         .values(category)
-        .onConflictDoNothing({ target: categories.id }); // Empêche l'insertion si l'ID existe déjà
+        .onConflictDoNothing({ target: categories.name }); // Empêche l'insertion si l'ID existe déjà
     }
     console.log('Catégories amorcées avec succès.');
 

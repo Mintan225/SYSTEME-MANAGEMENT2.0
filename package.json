@@ -13,7 +13,7 @@
     "start": "cross-env NODE_ENV=production node dist/index.js",
     "check": "tsc",
     "db:migrate": "ts-node drizzle.config.ts drizzle-kit migrate",
-    "db:seed": "tsx server/seed.mts"
+    "db:seed": "cross-env NODE_ENV=development tsx -r dotenv/config server/seed.mts"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.10.0",

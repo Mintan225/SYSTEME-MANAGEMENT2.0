@@ -1,5 +1,5 @@
 // server/db.ts
-
+import 'dotenv/config';
 import { Pool } from "pg";
 import { drizzle } from "drizzle-orm/node-postgres";  // ← driver PG natif
 import * as schema from "@shared/schema";

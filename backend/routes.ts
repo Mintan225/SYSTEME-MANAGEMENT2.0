@@ -115,7 +115,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/users", authenticateToken, authorizePermission(["users.create"]), async (req, res) => {
+  app.post("/api/users", express.json(), authenticateToken, authorizePermission(["users.create"]), async (req, res) => {
     try {
       const userData = insertUserSchema.parse(req.body);
       const hashedPassword = await bcrypt.hash(userData.password, 10);
@@ -181,7 +181,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.put("/api/users/:id", authenticateToken, authorizePermission(["users.edit"]), async (req, res) => {
+  app.put("/api/users/:id", express.json(), authenticateToken, authorizePermission(["users.edit"]), async (req, res) => {
     try {
       const userData = insertUserSchema.partial().parse(req.body);
       if (userData.password) {
@@ -211,7 +211,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Authentication routes
-  app.post("/api/auth/register", async (req, res) => {
+  app.post("/api/auth/register", express.json(), async (req, res) => {
     try {
       const { username, password } = req.body;
       
@@ -247,7 +247,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/auth/login", async (req, res) => {
+  app.post("/api/auth/login", express.json(), async (req, res) => {
     try {
       const { username, password } = req.body;
       
@@ -306,7 +306,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/categories", authenticateToken, authorizePermission(["categories.create"]), async (req, res) => {
+  app.post("/api/categories", express.json(), authenticateToken, authorizePermission(["categories.create"]), async (req, res) => {
     try {
       const categoryData = insertCategorySchema.parse(req.body);
       const category = await storage.createCategory(categoryData);
@@ -317,7 +317,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.put("/api/categories/:id", authenticateToken, authorizePermission(["categories.edit"]), async (req, res) => {
+  app.put("/api/categories/:id", express.json(), authenticateToken, authorizePermission(["categories.edit"]), async (req, res) => {
     try {
       const categoryData = insertCategorySchema.partial().parse(req.body);
       const category = await storage.updateCategory(Number(req.params.id), categoryData);
@@ -372,7 +372,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/products", authenticateToken, authorizePermission(["products.create"]), async (req, res) => {
+  app.post("/api/products", express.json(), authenticateToken, authorizePermission(["products.create"]), async (req, res) => {
     try {
       const productData = insertProductSchema.parse(req.body);
       const product = await storage.createProduct(productData);
@@ -383,7 +383,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.put("/api/products/:id", authenticateToken, authorizePermission(["products.edit"]), async (req, res) => {
+  app.put("/api/products/:id", express.json(), authenticateToken, authorizePermission(["products.edit"]), async (req, res) => {
     try {
       const productData = insertProductSchema.partial().parse(req.body);
       const product = await storage.updateProduct(Number(req.params.id), productData);
@@ -420,7 +420,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Image upload endpoint for products
-  app.post("/api/products/upload-image", authenticateToken, authorizePermission(["products.create", "products.edit"]), upload.single('image'), async (req, res) => {
+  app.post("/api/products/upload-image", express.json(), authenticateToken, authorizePermission(["products.create", "products.edit"]), upload.single('image'), async (req, res) => {
     try {
       if (!req.file) {
         return res.status(400).json({ message: "No image file provided" });
@@ -495,7 +495,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/tables", authenticateToken, authorizePermission(["tables.create"]), async (req, res) => {
+  app.post("/api/tables", express.json(), authenticateToken, authorizePermission(["tables.create"]), async (req, res) => {
     try {
       const { number, capacity } = req.body;
       
@@ -517,7 +517,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.put("/api/tables/:id", authenticateToken, authorizePermission(["tables.edit"]), async (req, res) => {
+  app.put("/api/tables/:id", express.json(), authenticateToken, authorizePermission(["tables.edit"]), async (req, res) => {
     try {
       const tableData = insertTableSchema.partial().parse(req.body);
       const table = await storage.updateTable(Number(req.params.id), tableData);
@@ -561,7 +561,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Route publique pour les commandes client (sans authentification)
-  app.post("/api/orders", async (req, res) => {
+  app.post("/api/orders", express.json(), async (req, res) => {
     try {
       const { tableId, customerName, customerPhone, orderItems, paymentMethod, notes } = req.body;
       
@@ -612,7 +612,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.put("/api/orders/:id", authenticateToken, authorizePermission(["orders.edit", "orders.update_status"]), async (req, res) => {
+  app.put("/api/orders/:id", express.json(), authenticateToken, authorizePermission(["orders.edit", "orders.update_status"]), async (req, res) => {
     try {
       const orderData = insertOrderSchema.partial().parse(req.body);
       
@@ -733,7 +733,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Order Items routes
-  app.post("/api/order-items", authenticateToken, authorizePermission(["orders.create"]), async (req, res) => { // Often managed indirectly via order update
+  app.post("/api/order-items", express.json(), authenticateToken, authorizePermission(["orders.create"]), async (req, res) => { // Often managed indirectly via order update
     try {
       const orderItemData = insertOrderItemSchema.parse(req.body);
       const orderItem = await storage.createOrderItem(orderItemData);
@@ -754,7 +754,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/sales", authenticateToken, authorizePermission(["sales.create"]), async (req, res) => {
+  app.post("/api/sales", express.json(), authenticateToken, authorizePermission(["sales.create"]), async (req, res) => {
     try {
       const saleData = insertSaleSchema.parse(req.body);
       const sale = await storage.createSale(saleData);
@@ -837,7 +837,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/expenses", authenticateToken, authorizePermission(["expenses.create"]), async (req, res) => {
+  app.post("/api/expenses", express.json(), authenticateToken, authorizePermission(["expenses.create"]), async (req, res) => {
     try {
       const expenseData = insertExpenseSchema.parse(req.body);
       const expense = await storage.createExpense(expenseData);
@@ -848,7 +848,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.put("/api/expenses/:id", authenticateToken, authorizePermission(["expenses.edit"]), async (req, res) => {
+  app.put("/api/expenses/:id", express.json(), authenticateToken, authorizePermission(["expenses.edit"]), async (req, res) => {
     try {
       const expenseData = insertExpenseSchema.partial().parse(req.body);
       const expense = await storage.updateExpense(Number(req.params.id), expenseData);
@@ -922,7 +922,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Route pour corriger les QR codes incohérents   
-  app.post("/api/admin/fix-qr-codes", authenticateToken, authorizePermission(["config.edit"]), async (req, res) => {
+  app.post("/api/admin/fix-qr-codes", express.json(), authenticateToken, authorizePermission(["config.edit"]), async (req, res) => {
     try {
       const tables = await storage.getTables();
       let fixedCount = 0;
@@ -948,7 +948,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Route pour regénérer TOUS les QR codes avec le bon format
-  app.put("/api/admin/regenerate-qr-codes", authenticateToken, authorizePermission(["config.edit"]), async (req, res) => {
+  app.put("/api/admin/regenerate-qr-codes", express.json(), authenticateToken, authorizePermission(["config.edit"]), async (req, res) => {
     try {
       const tables = await storage.getTables();
       let updatedCount = 0;
