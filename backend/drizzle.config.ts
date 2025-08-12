@@ -12,8 +12,8 @@ export default defineConfig({
   out: './drizzle',
   dbCredentials: {
     url: process.env.DATABASE_URL!,
-    // Ajoute la configuration SSL ici
-    ...(isRender && { ssl: { rejectUnauthorized: false } }),
+    // Move the SSL configuration inside the dbCredentials object
+    ssl: isRender ? { rejectUnauthorized: false } : undefined,
   },
   verbose: true,
   strict: true
