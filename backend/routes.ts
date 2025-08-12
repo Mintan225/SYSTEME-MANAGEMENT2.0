@@ -420,7 +420,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Image upload endpoint for products
-  app.post("/api/products/upload-image", express.json(), authenticateToken, authorizePermission(["products.create", "products.edit"]), upload.single('image'), async (req, res) => {
+  app.post("/api/products/upload-image", authenticateToken, authorizePermission(["products.create", "products.edit"]), upload.single('image'), async (req, res) => {
     try {
       if (!req.file) {
         return res.status(400).json({ message: "No image file provided" });

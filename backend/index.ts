@@ -9,8 +9,7 @@ import path from "path";
 import { execSync } from "child_process";
 
 const app = express();
-app.use(express.json());
-app.use(express.urlencoded({ extended: false }));
+
 
 // Serve static files for uploaded images
 app.use('/uploads', express.static(path.join(process.cwd(), 'public/uploads')));
