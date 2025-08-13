@@ -7,6 +7,7 @@ import path from "path";
 import { insertUserSchema, insertCategorySchema, insertProductSchema, insertTableSchema, insertOrderSchema, insertOrderItemSchema, insertSaleSchema, insertExpenseSchema, insertSuperAdminSchema } from "@shared/schema";
 import { DEFAULT_PERMISSIONS, type UserRole } from "@shared/permissions";
 import { storage } from "./storage";
+import express from "express"; // Ajout de l'import d'express
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { APP_CONFIG, PaymentConfig, getAvailablePaymentMethods, getPaymentMethodLabel, isPaymentMethodEnabled } from "@shared/config";
