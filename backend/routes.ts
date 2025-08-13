@@ -11,6 +11,8 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { APP_CONFIG, PaymentConfig, getAvailablePaymentMethods, getPaymentMethodLabel, isPaymentMethodEnabled } from "@shared/config";
 import { PaymentService } from "./payment-service";
+import fs from 'fs';
+
 
 // Configure multer for image uploads
 const storage_multer = multer.diskStorage({
@@ -57,38 +59,30 @@ function authenticateToken(req: any, res: any, next: any) {
       }
       return res.status(403).json({ message: 'Invalid or expired token' });
     }
-     // --- NOUVEAUX LOGS CRUCIAUX ICI ---
     console.log("[AUTH_TOKEN_DEBUG] Token decoded successfully. Decoded payload:", decoded);
-    // Assurez-vous que decoded.permissions est bien un tableau
     req.user = { 
       ...decoded, 
       permissions: Array.isArray(decoded.permissions) ? decoded.permissions : [] 
     };
     console.log("[AUTH_TOKEN_DEBUG] req.user.permissions after processing:", req.user.permissions);
-    // --- FIN NOUVEAUX LOGS CRUCIAUX ---
-
-    // Ensure permissions are always an array, even if empty or missing from token
     next();
   });
 }
 
-// Add this new middleware function for authorization
 function authorizePermission(requiredPermissions: string[]) {
   return (req: any, res: any, next: any) => {
-    // Ensure req.user and req.user.permissions exist
     if (!req.user || !req.user.permissions) {
       return res.status(403).json({ message: 'Access denied: No permissions found for user.' });
     }
 
     const userPermissions: string[] = req.user.permissions;
 
-    // Check if the user has at least one of the required permissions
     const hasPermission = requiredPermissions.some(permission => 
       userPermissions.includes(permission)
     );
 
     if (hasPermission) {
-      next(); // User has permission, proceed
+      next();
     } else {
       res.status(403).json({ message: 'Access denied: Insufficient permissions.' });
     }
@@ -96,6 +90,21 @@ function authorizePermission(requiredPermissions: string[]) {
 }
 
 export async function registerRoutes(app: Express): Promise<Server> {
+  // CORRECTION : Middleware global de gestion des erreurs pour Multer
+  // Ce middleware intercepte les erreurs générées par `upload.single('image')`
+  // et s'assure qu'une réponse JSON est toujours renvoyée, évitant ainsi
+  // le problème 'Unexpected token' côté client.
+  app.use((err: any, req: Request, res: Response, next: NextFunction) => {
+    if (err instanceof multer.MulterError) {
+      console.error("[MULTER_ERROR]:", err.message);
+      return res.status(400).json({ message: `Multer Error: ${err.message}` });
+    } else if (err) {
+      console.error("[GENERIC_UPLOAD_ERROR]:", err.message);
+      return res.status(400).json({ message: err.message });
+    }
+    next();
+  });
+
   // Health check endpoint for Railway
   app.get("/api/health", (req, res) => {
     res.status(200).json({ 
@@ -103,6 +112,59 @@ export async function registerRoutes(app: Express): Promise<Server> {
       timestamp: new Date().toISOString(),
       version: "1.0.0"
     });
+  });
+
+  app.use(express.static('public'));
+  app.use(express.json());
+
+  // Image upload endpoint for products
+  app.post("/api/products/upload-image", authenticateToken, authorizePermission(["products.create", "products.edit"]), upload.single('image'), async (req, res) => {
+    try {
+      if (!req.file) {
+        return res.status(400).json({ message: "No image file provided" });
+      }
+
+      const imageUrl = `/uploads/products/${req.file.filename}`;
+      
+      res.json({
+        message: "Image uploaded successfully",
+        imageUrl: imageUrl,
+        filename: req.file.filename
+      });
+    } catch (error) {
+      console.error("Error uploading image:", error);
+      res.status(500).json({ 
+        message: "Failed to upload image", 
+        error: error instanceof Error ? error.message : String(error) 
+      });
+    }
+  });
+
+  // Delete product image endpoint
+  app.delete("/api/products/delete-image", authenticateToken, authorizePermission(["products.edit", "products.delete"]), async (req, res) => {
+    try {
+      const { imageUrl } = req.body;
+      
+      if (!imageUrl) {
+        return res.status(400).json({ message: "Image URL is required" });
+      }
+        
+      const filename = path.basename(imageUrl);
+      const filepath = path.join(process.cwd(), 'public', 'uploads', 'products', filename);
+      
+      if (fs.existsSync(filepath)) {
+        fs.unlinkSync(filepath);
+        res.json({ message: "Image deleted successfully" });
+      } else {
+        res.status(404).json({ message: "Image file not found" });
+      }
+    } catch (error) {
+      console.error("Error deleting image:", error);
+      res.status(500).json({ 
+        message: "Failed to delete image", 
+        error: error instanceof Error ? error.message : String(error) 
+      });
+    }
   });
 
   // Users management routes
@@ -115,59 +177,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/users", express.json(), authenticateToken, authorizePermission(["users.create"]), async (req, res) => {
+  app.post("/api/users", authenticateToken, authorizePermission(["users.create"]), async (req, res) => {
     try {
       const userData = insertUserSchema.parse(req.body);
       const hashedPassword = await bcrypt.hash(userData.password, 10);
       
-      // Assigner les permissions par défaut si aucune permission n'est fournie ou si le tableau est vide
-      const defaultPermissions = {
-        admin: [
-          "products.view", "products.create", "products.edit", "products.delete", "products.archive",
-          "categories.view", "categories.create", "categories.edit", "categories.delete",
-          "orders.view", "orders.create", "orders.edit", "orders.delete", "orders.update_status",
-          "sales.view", "sales.create", "sales.delete", "sales.export",
-          "expenses.view", "expenses.create", "expenses.edit", "expenses.delete",
-          "tables.view", "tables.create", "tables.edit", "tables.delete", "tables.generate_qr",
-          "analytics.view", "analytics.export",
-          "users.view", "users.create", "users.edit", "users.delete", "users.manage_permissions",
-          "config.view", "config.edit", "config.payment_methods",
-          "archives.view", "archives.restore"
-        ],
-        manager: [
-          "products.view", "products.create", "products.edit", "products.delete", "products.archive",
-          "categories.view", "categories.create", "categories.edit", "categories.delete",
-          "orders.view", "orders.create", "orders.edit", "orders.update_status",
-          "sales.view", "sales.create", "sales.delete", "sales.export",
-          "expenses.view", "expenses.create", "expenses.edit", "expenses.delete",
-          "tables.view", "tables.create", "tables.edit", "tables.generate_qr",
-          "analytics.view", "analytics.export",
-          "users.view", "users.create", "users.edit",
-          "config.view", "config.edit",
-          "archives.view", "archives.restore"
-        ],
-        employee: [
-          "products.view",
-          "categories.view",
-          "orders.view", "orders.create", "orders.update_status",
-          "sales.view", "sales.create",
-          "expenses.view", "expenses.create",
-          "tables.view",
-          "analytics.view"
-        ],
-        cashier: [
-          "products.view",
-          "categories.view",
-          "orders.view", "orders.update_status",
-          "sales.view", "sales.create", "sales.export",
-          "tables.view",
-          "analytics.view"
-        ]
-      };
-      
       const permissions = (userData.permissions && userData.permissions.length > 0) 
         ? userData.permissions 
-        : defaultPermissions[userData.role] || [];
+        : DEFAULT_PERMISSIONS[userData.role] || [];
       
       const user = await storage.createUser({
         ...userData,
@@ -181,7 +198,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.put("/api/users/:id", express.json(), authenticateToken, authorizePermission(["users.edit"]), async (req, res) => {
+  app.put("/api/users/:id", authenticateToken, authorizePermission(["users.edit"]), async (req, res) => {
     try {
       const userData = insertUserSchema.partial().parse(req.body);
       if (userData.password) {
@@ -209,13 +226,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ message: "Failed to delete user" });
     }
   });
-
+  
   // Authentication routes
-  app.post("/api/auth/register", express.json(), async (req, res) => {
+  app.post("/api/auth/register", async (req, res) => {
     try {
       const { username, password } = req.body;
       
-      // Check if user already exists
       const existingUser = await storage.getUserByUsername(username);
       if (existingUser) {
         return res.status(400).json({ message: "Username already exists" });
@@ -227,19 +243,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
         password: hashedPassword,
         fullName: username,
         role: 'admin',
-        permissions: ['products.view', 'products.create', 'products.edit', 'products.delete', 'products.archive', 'categories.view', 'categories.create', 'categories.edit', 'categories.delete', 'orders.view', 'orders.create', 'orders.edit', 'orders.delete', 'orders.update_status', 'sales.view', 'sales.create', 'sales.delete', 'sales.export', 'expenses.view', 'expenses.create', 'expenses.edit', 'expenses.delete', 'tables.view', 'tables.create', 'tables.edit', 'tables.delete', 'tables.generate_qr', 'analytics.view', 'analytics.export', 'users.view', 'users.create', 'users.edit', 'users.delete', 'users.manage_permissions', 'config.view', 'config.edit', 'config.payment_methods', 'archives.view', 'archives.restore']
+        permissions: DEFAULT_PERMISSIONS['admin']
       });
 
       const user = await storage.createUser(userData);
       const token = jwt.sign(
-        { id: user.id, username: user.username, role: user.role, permissions: user.permissions }, // Include permissions in token payload
+        { id: user.id, username: user.username, role: user.role, permissions: user.permissions },
         APP_CONFIG.SECURITY.JWT_SECRET,
         { expiresIn: APP_CONFIG.SECURITY.JWT_EXPIRES_IN } as jwt.SignOptions
       );
 
       res.json({
         token,
-        user: { id: user.id, username: user.username, role: user.role, permissions: user.permissions } // Ensure permissions are sent back
+        user: { id: user.id, username: user.username, role: user.role, permissions: user.permissions }
       });
     } catch (error) {
       console.error("Registration error:", error);
@@ -247,13 +263,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/auth/login", express.json(), async (req, res) => {
+  app.post("/api/auth/login", async (req, res) => {
     try {
       const { username, password } = req.body;
       
-      // --- START: Detailed Login Debug Logs ---
       console.log(`[LOGIN_DEBUG] Attempting login for username: "${username}"`);
-      console.log(`[LOGIN_DEBUG] Request body received:`, req.body); // Verify username/password are present
+      console.log(`[LOGIN_DEBUG] Request body received:`, req.body);
 
       const user = await storage.getUserByUsername(username);
       if (!user) {
@@ -262,42 +277,35 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       console.log(`[LOGIN_DEBUG] Success: User "${username}" found in database. User ID: ${user.id}, Role: ${user.role}`);
 
-      const isValidPassword = (password === 'admin123');
-      // **WARNING: REMOVE THESE PASSWORD LOGS IN PRODUCTION!**
-      // console.log(`[LOGIN_DEBUG] Comparing provided password (plaintext): "${password}"`); 
-      // console.log(`[LOGIN_DEBUG] With hashed password from DB: "${user.password}"`); 
-      // **END WARNING**
-
+      const isValidPassword = await bcrypt.compare(password, user.password);
+      
       if (!isValidPassword) {
-        console.log(`[LOGIN_DEBUG] Failure: Incorrect password for user "${username}". bcrypt.compare result: ${isValidPassword}`);
+        console.log(`[LOGIN_DEBUG] Failure: Incorrect password for user "${username}".`);
         return res.status(401).json({ message: "Invalid credentials" });
       }
-      console.log(`[LOGIN_DEBUG] Success: Password is correct for user "${username}". bcrypt.compare result: ${isValidPassword}`);
+      console.log(`[LOGIN_DEBUG] Success: Password is correct for user "${username}".`);
 
       const token = jwt.sign(
-        { id: user.id, username: user.username, role: user.role, permissions: user.permissions }, // Include permissions in token payload
+        { id: user.id, username: user.username, role: user.role, permissions: user.permissions },
         APP_CONFIG.SECURITY.JWT_SECRET,
         { expiresIn: APP_CONFIG.SECURITY.JWT_EXPIRES_IN } as jwt.SignOptions
       );
 
       console.log(`[LOGIN_DEBUG] Login successful for user "${username}". Token generated.`);
-      // --- END: Detailed Login Debug Logs ---
 
       res.json({
         token,
-        user: { id: user.id, username: user.username, role: user.role, permissions: user.permissions } // Ensure permissions are sent back
+        user: { id: user.id, username: user.username, role: user.role, permissions: user.permissions }
       });
     } catch (error) {
-      // --- START: Error Debug Log ---
       console.error("[LOGIN_DEBUG] Unexpected error during login:", error); 
-      // --- END: Error Debug Log ---
-      console.error("Login error:", error); // Keep generic error log for production
+      console.error("Login error:", error);
       res.status(500).json({ message: "Failed to login", error: error instanceof Error ? error.message : String(error) });
     }
   });
 
   // Categories routes
-  app.get("/api/categories", async (req, res) => { // Public route for viewing categories
+  app.get("/api/categories", async (req, res) => {
     try {
       const categories = await storage.getCategories();
       res.json(categories);
@@ -306,7 +314,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/categories", express.json(), authenticateToken, authorizePermission(["categories.create"]), async (req, res) => {
+  app.post("/api/categories", authenticateToken, authorizePermission(["categories.create"]), async (req, res) => {
     try {
       const categoryData = insertCategorySchema.parse(req.body);
       const category = await storage.createCategory(categoryData);
@@ -317,7 +325,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.put("/api/categories/:id", express.json(), authenticateToken, authorizePermission(["categories.edit"]), async (req, res) => {
+  app.put("/api/categories/:id", authenticateToken, authorizePermission(["categories.edit"]), async (req, res) => {
     try {
       const categoryData = insertCategorySchema.partial().parse(req.body);
       const category = await storage.updateCategory(Number(req.params.id), categoryData);
@@ -343,7 +351,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Products routes
-  app.get("/api/products", async (req, res) => { // Public route for viewing products
+  app.get("/api/products", async (req, res) => {
     try {
       const { categoryId } = req.query;
       let products;
@@ -360,7 +368,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/products/:id", async (req, res) => { // Public route for viewing a single product
+  app.get("/api/products/:id", async (req, res) => {
     try {
       const product = await storage.getProduct(Number(req.params.id));
       if (!product) {
@@ -372,7 +380,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/products", express.json(), authenticateToken, authorizePermission(["products.create"]), async (req, res) => {
+  app.post("/api/products", authenticateToken, authorizePermission(["products.create"]), async (req, res) => {
     try {
       const productData = insertProductSchema.parse(req.body);
       const product = await storage.createProduct(productData);
@@ -383,7 +391,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.put("/api/products/:id", express.json(), authenticateToken, authorizePermission(["products.edit"]), async (req, res) => {
+  app.put("/api/products/:id", authenticateToken, authorizePermission(["products.edit"]), async (req, res) => {
     try {
       const productData = insertProductSchema.partial().parse(req.body);
       const product = await storage.updateProduct(Number(req.params.id), productData);
@@ -419,60 +427,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Image upload endpoint for products
-  app.post("/api/products/upload-image", authenticateToken, authorizePermission(["products.create", "products.edit"]), upload.single('image'), async (req, res) => {
-    try {
-      if (!req.file) {
-        return res.status(400).json({ message: "No image file provided" });
-      }
-
-      // Return the relative URL that can be used to access the image
-      const imageUrl = `/uploads/products/${req.file.filename}`;
-      
-      res.json({
-        message: "Image uploaded successfully",
-        imageUrl: imageUrl,
-        filename: req.file.filename
-      });
-    } catch (error) {
-      console.error("Error uploading image:", error);
-      res.status(500).json({ 
-        message: "Failed to upload image", 
-        error: error instanceof Error ? error.message : String(error) 
-      });
-    }
-  });
-
-  // Delete product image endpoint
-  app.delete("/api/products/delete-image", authenticateToken, authorizePermission(["products.edit", "products.delete"]), async (req, res) => {
-    try {
-      const { imageUrl } = req.body;
-      
-      if (!imageUrl) {
-        return res.status(400).json({ message: "Image URL is required" });
-      }
-
-      // Extract filename from URL
-      const filename = path.basename(imageUrl);
-      const filepath = path.join(process.cwd(), 'public', 'uploads', 'products', filename);
-      
-      // Check if file exists and delete it
-      const fs = await import('fs');
-      if (fs.existsSync(filepath)) {
-        fs.unlinkSync(filepath);
-        res.json({ message: "Image deleted successfully" });
-      } else {
-        res.status(404).json({ message: "Image file not found" });
-      }
-    } catch (error) {
-      console.error("Error deleting image:", error);
-      res.status(500).json({ 
-        message: "Failed to delete image", 
-        error: error instanceof Error ? error.message : String(error) 
-      });
-    }
-  });
-
   // Tables routes
   app.get("/api/tables", authenticateToken, authorizePermission(["tables.view"]), async (req, res) => {
     try {
@@ -495,11 +449,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/tables", express.json(), authenticateToken, authorizePermission(["tables.create"]), async (req, res) => {
+  app.post("/api/tables", authenticateToken, authorizePermission(["tables.create"]), async (req, res) => {
     try {
       const { number, capacity } = req.body;
       
-      // Générer automatiquement le QR code
       const qrCode = `https://${req.headers.host}/table/${number}`;
       
       const tableData = {
@@ -517,7 +470,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.put("/api/tables/:id", express.json(), authenticateToken, authorizePermission(["tables.edit"]), async (req, res) => {
+  app.put("/api/tables/:id", authenticateToken, authorizePermission(["tables.edit"]), async (req, res) => {
     try {
       const tableData = insertTableSchema.partial().parse(req.body);
       const table = await storage.updateTable(Number(req.params.id), tableData);
@@ -548,7 +501,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/orders/:id", async (req, res) => { // This could be public for receipt viewing if not logged in, or auth if for admin.
+  app.get("/api/orders/:id", async (req, res) => {
     try {
       const order = await storage.getOrderWithItems(Number(req.params.id));
       if (!order) {
@@ -560,12 +513,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Route publique pour les commandes client (sans authentification)
-  app.post("/api/orders", express.json(), async (req, res) => {
+  app.post("/api/orders", async (req, res) => {
     try {
       const { tableId, customerName, customerPhone, orderItems, paymentMethod, notes } = req.body;
       
-      // Calculer le total à partir des items
       const total = orderItems.reduce((sum: number, item: any) => {
         return sum + (parseFloat(item.price) * item.quantity);
       }, 0);
@@ -583,14 +534,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       const order = await storage.createOrder(orderData);
       
-      // Mettre à jour le statut de la table comme "occupied" quand une commande est créée
       try {
         await storage.updateTable(parseInt(tableId), { status: "occupied" });
       } catch (error) {
         console.error("Error updating table status:", error);
       }
       
-      // Créer les items de la commande
       if (orderItems && orderItems.length > 0) {
         for (const item of orderItems) {
           await storage.createOrderItem({
@@ -603,7 +552,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
       
-      // Retourner la commande avec ses éléments
       const orderWithItems = await storage.getOrderWithItems(order.id);
       res.json(orderWithItems);
     } catch (error) {
@@ -612,15 +560,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.put("/api/orders/:id", express.json(), authenticateToken, authorizePermission(["orders.edit", "orders.update_status"]), async (req, res) => {
+  app.put("/api/orders/:id", authenticateToken, authorizePermission(["orders.edit", "orders.update_status"]), async (req, res) => {
     try {
       const orderData = insertOrderSchema.partial().parse(req.body);
       
-      // Si la commande passe au statut "completed", marquer automatiquement le paiement comme "paid"
       if (orderData.status === 'completed') {
         orderData.paymentStatus = 'paid';
         orderData.completedAt = new Date();
-
       }
       
       const order = await storage.updateOrder(Number(req.params.id), orderData);
@@ -628,12 +574,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: "Order not found" });
       }
       
-      // Mettre à jour le statut de la table quand la commande change
       if (orderData.status) {
         try {
           let tableStatus = "available";
           if (orderData.status === 'completed' || orderData.status === 'cancelled') {
-            // Vérifier s'il y a d'autres commandes actives pour cette table
             const activeOrders = await storage.getActiveOrders();
             const otherActiveOrders = activeOrders.filter((o: any) => 
               o.tableId === order.tableId && 
@@ -657,12 +601,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
       
-      // Si le statut est "completed" et le paiement est "paid", générer automatiquement une vente
       if (orderData.status === 'completed' && orderData.paymentStatus === 'paid') {
         try {
           const orderWithItems = await storage.getOrderWithItems(order.id);
           if (orderWithItems) {
-            // Vérifier si une vente existe déjà pour cette commande
             const existingSales = await storage.getSales();
             const existingSale = existingSales.find(sale => sale.orderId === order.id);
             
@@ -691,7 +633,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Route pour générer et télécharger un reçu
-  app.get("/api/orders/:id/receipt", async (req, res) => { // Public route, can be accessed after order is paid
+  app.get("/api/orders/:id/receipt", async (req, res) => {
     try {
       const orderId = Number(req.params.id);
       const orderWithItems = await storage.getOrderWithItems(orderId);
@@ -700,7 +642,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: "Order not found" });
       }
       
-      // Vérifier que la commande est payée
       if (orderWithItems.paymentStatus !== 'paid') {
         return res.status(400).json({ message: "Order is not paid yet" });
       }
@@ -720,9 +661,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         total: parseFloat(orderWithItems.total),
         paymentMethod: orderWithItems.paymentMethod || 'Espèces',
         paymentDate: orderWithItems.createdAt,
-        restaurantName: 'Mon Restaurant',
+        restaurantName: 'RESTO BAR MANAGER',
         restaurantAddress: 'Adresse du restaurant', 
-        restaurantPhone: '+225 XX XX XX XX'
+        restaurantPhone: '+225 07 78 26 560 9'
       };
       
       res.json(receiptData);
@@ -733,7 +674,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Order Items routes
-  app.post("/api/order-items", express.json(), authenticateToken, authorizePermission(["orders.create"]), async (req, res) => { // Often managed indirectly via order update
+  app.post("/api/order-items", authenticateToken, authorizePermission(["orders.create"]), async (req, res) => {
     try {
       const orderItemData = insertOrderItemSchema.parse(req.body);
       const orderItem = await storage.createOrderItem(orderItemData);
@@ -754,7 +695,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/sales", express.json(), authenticateToken, authorizePermission(["sales.create"]), async (req, res) => {
+  app.post("/api/sales", authenticateToken, authorizePermission(["sales.create"]), async (req, res) => {
     try {
       const saleData = insertSaleSchema.parse(req.body);
       const sale = await storage.createSale(saleData);
@@ -807,23 +748,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/archives/sales", authenticateToken, authorizePermission(["archives.view"]), async (req, res) => {
+  app.get("/api/archives/products", authenticateToken, authorizePermission(["archives.view"]), async (req, res) => {
     try {
-      const sales = await storage.getDeletedSales();
-      res.json(sales);
+      const products = await storage.getArchivedProducts();
+      res.json(products);
     } catch (error) {
-      console.error("Error fetching deleted sales:", error);
-      res.status(500).json({ message: "Failed to fetch deleted sales" });
+      console.error("Error fetching archived products:", error);
+      res.status(500).json({ message: "Failed to fetch archived products" });
     }
   });
 
-  app.get("/api/archives/expenses", authenticateToken, authorizePermission(["archives.view"]), async (req, res) => {
+  app.put("/api/archives/products/restore/:id", authenticateToken, authorizePermission(["archives.restore"]), async (req, res) => {
     try {
-      const expenses = await storage.getDeletedExpenses();
-      res.json(expenses);
+      const productId = Number(req.params.id);
+      const product = await storage.restoreArchivedProduct(productId);
+      if (!product) {
+        return res.status(404).json({ message: "Archived product not found" });
+      }
+      res.json({ message: "Product restored successfully" });
     } catch (error) {
-      console.error("Error fetching deleted expenses:", error);
-      res.status(500).json({ message: "Failed to fetch deleted expenses" });
+      console.error("Error restoring product:", error);
+      res.status(500).json({ message: "Failed to restore product" });
     }
   });
 
@@ -833,11 +778,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const expenses = await storage.getExpenses();
       res.json(expenses);
     } catch (error) {
+      console.error("Error fetching expenses:", error);
       res.status(500).json({ message: "Failed to fetch expenses" });
     }
   });
 
-  app.post("/api/expenses", express.json(), authenticateToken, authorizePermission(["expenses.create"]), async (req, res) => {
+  app.post("/api/expenses", authenticateToken, authorizePermission(["expenses.create"]), async (req, res) => {
     try {
       const expenseData = insertExpenseSchema.parse(req.body);
       const expense = await storage.createExpense(expenseData);
@@ -848,7 +794,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.put("/api/expenses/:id", express.json(), authenticateToken, authorizePermission(["expenses.edit"]), async (req, res) => {
+  app.put("/api/expenses/:id", authenticateToken, authorizePermission(["expenses.edit"]), async (req, res) => {
     try {
       const expenseData = insertExpenseSchema.partial().parse(req.body);
       const expense = await storage.updateExpense(Number(req.params.id), expenseData);
@@ -857,7 +803,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       res.json(expense);
     } catch (error) {
-      res.status(500).json({ message: "Failed to update expense" });
+      console.error("Error updating expense:", error);
+      res.status(500).json({ message: "Failed to update expense", error: error instanceof Error ? error.message : String(error) });
     }
   });
 
@@ -869,131 +816,72 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       res.json({ message: "Expense deleted successfully" });
     } catch (error) {
+      console.error("Error deleting expense:", error);
       res.status(500).json({ message: "Failed to delete expense" });
     }
   });
 
-  // Analytics routes
-  app.get("/api/analytics/daily", authenticateToken, authorizePermission(["analytics.view"]), async (req, res) => {
+  // Super Admin routes (initial setup)
+  app.post("/api/super-admin/setup", async (req, res) => {
     try {
-      const today = new Date();
-      const stats = await storage.getDailyStats(today);
-      res.json(stats);
-    } catch (error) {
-      res.status(500).json({ message: "Failed to fetch daily stats" });
-    }
-  });
-
-  app.get("/api/analytics/weekly", authenticateToken, authorizePermission(["analytics.view"]), async (req, res) => {
-    try {
-      const weeklyStats = await storage.getWeeklyStats();
-      res.json(weeklyStats);
-    } catch (error) {
-      res.status(500).json({ message: "Failed to fetch weekly stats" });
-    }
-  });
-
-  // Menu routes (public, no auth required)
-  app.get("/api/menu/:tableNumber", async (req, res) => {
-    try {
-      const tableNumber = Number(req.params.tableNumber);
-      const table = await storage.getTableByNumber(tableNumber);
+      const superAdminData = insertSuperAdminSchema.parse(req.body);
+      const existingSuperAdmin = await storage.getSuperAdmin();
       
-      if (!table) {
-        return res.status(404).json({ message: "Table not found" });
+      if (existingSuperAdmin) {
+        return res.status(409).json({ message: "Super Admin already exists. Cannot create another one." });
       }
 
-      const categories = await storage.getCategories();
-      const products = await storage.getProducts();
-      
-      // Get recent orders for this table for notification tracking
-      const orders = await storage.getOrders();
-      const tableOrders = orders.filter(o => o.tableId === table.id);
-
-      res.json({
-        table,
-        categories,
-        products: products.filter(p => p.available),
-        orders: tableOrders,
+      const hashedPassword = await bcrypt.hash(superAdminData.password, 10);
+      const superAdmin = await storage.createSuperAdmin({
+        ...superAdminData,
+        password: hashedPassword,
+        permissions: DEFAULT_PERMISSIONS['super-admin']
       });
+
+      res.status(201).json({ message: "Super Admin created successfully", superAdmin });
     } catch (error) {
-      res.status(500).json({ message: "Failed to fetch menu" });
+      console.error("Error setting up super admin:", error);
+      res.status(500).json({ message: "Failed to set up super admin", error: error instanceof Error ? error.message : String(error) });
     }
   });
 
-  // Route pour corriger les QR codes incohérents   
-  app.post("/api/admin/fix-qr-codes", express.json(), authenticateToken, authorizePermission(["config.edit"]), async (req, res) => {
-    try {
-      const tables = await storage.getTables();
-      let fixedCount = 0;
-      
-      for (const table of tables) {
-        // Vérifier si le QR code contient "/menu/" au lieu de "/table/"
-        if (table.qrCode && table.qrCode.includes('/menu/')) {
-          const correctQrCode = table.qrCode.replace('/menu/', '/table/');
-          await storage.updateTable(table.id, { qrCode: correctQrCode });
-          fixedCount++;
-        }
-      }
-      
-      res.json({ 
-        message: `Fixed ${fixedCount} QR codes`,
-        fixed: fixedCount,
-        total: tables.length 
-      });
-    } catch (error) {
-      console.error("Error fixing QR codes:", error);
-      res.status(500).json({ message: "Failed to fix QR codes" });
-    }
-  });
-
-  // Route pour regénérer TOUS les QR codes avec le bon format
-  app.put("/api/admin/regenerate-qr-codes", express.json(), authenticateToken, authorizePermission(["config.edit"]), async (req, res) => {
-    try {
-      const tables = await storage.getTables();
-      let updatedCount = 0;
-      
-      for (const table of tables) {
-        // Regénérer QR code avec format correct /table/
-        const correctQrCode = `https://${req.headers.host}/table/${table.number}`;
-        await storage.updateTable(table.id, { qrCode: correctQrCode });
-        updatedCount++;
-      }
-      
-      res.json({ 
-        message: `Regenerated ${updatedCount} QR codes`,
-        updated: updatedCount,
-        total: tables.length 
-      });
-    } catch (error) {
-      console.error("Error regenerating QR codes:", error);
-      res.status(500).json({ message: "Failed to regenerate QR codes" });
-    }
-  });
-
-  // Configuration routes
-  app.get("/api/config", authenticateToken, authorizePermission(["config.view"]), (req, res) => {
+  // Payment methods routes
+  app.get("/api/payment-methods", authenticateToken, authorizePermission(["config.view"]), async (req, res) => {
     try {
       res.json({
-        appName: APP_CONFIG.APP.NAME,
-        currency: APP_CONFIG.APP.CURRENCY,
-        paymentMethods: getAvailablePaymentMethods().map(method => ({
-          key: method,
-          label: getPaymentMethodLabel(method),
-          enabled: isPaymentMethodEnabled(method)
-        })),
-        security: {
-          jwtExpiresIn: APP_CONFIG.SECURITY.JWT_EXPIRES_IN
-        },
-        // Ajoutez d'autres configurations que vous souhaitez exposer ici
+        availableMethods: getAvailablePaymentMethods(),
+        enabledMethods: getAvailablePaymentMethods().filter(method => isPaymentMethodEnabled(method))
       });
     } catch (error) {
-      console.error("Error fetching config:", error);
-      res.status(500).json({ message: "Failed to fetch configuration", error: error instanceof Error ? error.message : String(error) });
+      console.error("Error fetching payment methods:", error);
+      res.status(500).json({ message: "Failed to fetch payment methods" });
     }
   });
 
-  // Crée et retourne le serveur HTTP
-  const server = createServer(app);
-  return server;
-} // Fin de la fonction registerRoutes
+  // Webhooks
+  app.post("/api/webhooks/payment/stripe", async (req, res) => {
+    try {
+      await PaymentService.handleWebhook("stripe", req.body);
+      res.status(200).json({ received: true });
+    } catch (error) {
+      console.error("Stripe webhook error:", error);
+      res.status(400).json({ message: "Stripe webhook failed" });
+    }
+  });
+
+  app.post("/api/webhooks/payment/paypal", async (req, res) => {
+    try {
+      await PaymentService.handleWebhook("paypal", req.body);
+      res.status(200).json({ received: true });
+    } catch (error) {
+      console.error("PayPal webhook error:", error);
+      res.status(400).json({ message: "PayPal webhook failed" });
+    }
+  });
+
+  app.get("*", (req, res) => {
+    res.status(404).json({ message: "Not Found" });
+  });
+
+  return createServer(app);
+}
