@@ -7,7 +7,7 @@ import path from "path";
 import { insertUserSchema, insertCategorySchema, insertProductSchema, insertTableSchema, insertOrderSchema, insertOrderItemSchema, insertSaleSchema, insertExpenseSchema, insertSuperAdminSchema } from "@shared/schema";
 import { DEFAULT_PERMISSIONS, type UserRole } from "@shared/permissions";
 import { storage } from "./storage";
-import express from "express"; // Ajout de l'import d'express
+import express from "express";
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { APP_CONFIG, PaymentConfig, getAvailablePaymentMethods, getPaymentMethodLabel, isPaymentMethodEnabled } from "@shared/config";
@@ -91,20 +91,6 @@ function authorizePermission(requiredPermissions: string[]) {
 }
 
 export async function registerRoutes(app: Express): Promise<Server> {
-  // CORRECTION : Middleware global de gestion des erreurs pour Multer
-  // Ce middleware intercepte les erreurs générées par `upload.single('image')`
-  // et s'assure qu'une réponse JSON est toujours renvoyée, évitant ainsi
-  // le problème 'Unexpected token' côté client.
-  app.use((err: any, req: Request, res: Response, next: NextFunction) => {
-    if (err instanceof multer.MulterError) {
-      console.error("[MULTER_ERROR]:", err.message);
-      return res.status(400).json({ message: `Multer Error: ${err.message}` });
-    } else if (err) {
-      console.error("[GENERIC_UPLOAD_ERROR]:", err.message);
-      return res.status(400).json({ message: err.message });
-    }
-    next();
-  });
 
   // Health check endpoint for Railway
   app.get("/api/health", (req, res) => {
@@ -119,26 +105,38 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.use(express.json());
 
   // Image upload endpoint for products
-  app.post("/api/products/upload-image", authenticateToken, authorizePermission(["products.create", "products.edit"]), upload.single('image'), async (req, res) => {
-    try {
-      if (!req.file) {
-        return res.status(400).json({ message: "No image file provided" });
+  app.post("/api/products/upload-image", authenticateToken, authorizePermission(["products.create", "products.edit"]), (req, res) => {
+    upload.single('image')(req, res, (err: any) => {
+      // Middleware de gestion des erreurs pour Multer, placé au bon endroit
+      if (err instanceof multer.MulterError) {
+        console.error("[MULTER_ERROR]:", err.message);
+        return res.status(400).json({ message: `Multer Error: ${err.message}` });
+      } else if (err) {
+        console.error("[GENERIC_UPLOAD_ERROR]:", err.message);
+        return res.status(400).json({ message: err.message });
       }
 
-      const imageUrl = `/uploads/products/${req.file.filename}`;
-      
-      res.json({
-        message: "Image uploaded successfully",
-        imageUrl: imageUrl,
-        filename: req.file.filename
-      });
-    } catch (error) {
-      console.error("Error uploading image:", error);
-      res.status(500).json({ 
-        message: "Failed to upload image", 
-        error: error instanceof Error ? error.message : String(error) 
-      });
-    }
+      // Si aucune erreur, on continue le traitement de la requête
+      try {
+        if (!req.file) {
+          return res.status(400).json({ message: "No image file provided" });
+        }
+
+        const imageUrl = `/uploads/products/${req.file.filename}`;
+        
+        res.json({
+          message: "Image uploaded successfully",
+          imageUrl: imageUrl,
+          filename: req.file.filename
+        });
+      } catch (error) {
+        console.error("Error uploading image:", error);
+        res.status(500).json({ 
+          message: "Failed to upload image", 
+          error: error instanceof Error ? error.message : String(error) 
+        });
+      }
+    });
   });
 
   // Delete product image endpoint
@@ -863,26 +861,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/webhooks/payment/stripe", async (req, res) => {
     try {
       await PaymentService.handleWebhook("stripe", req.body);
-      res.status(200).json({ received: true });
-    } catch (error) {
-      console.error("Stripe webhook error:", error);
-      res.status(400).json({ message: "Stripe webhook failed" });
     }
   });
-
-  app.post("/api/webhooks/payment/paypal", async (req, res) => {
-    try {
-      await PaymentService.handleWebhook("paypal", req.body);
-      res.status(200).json({ received: true });
-    } catch (error) {
-      console.error("PayPal webhook error:", error);
-      res.status(400).json({ message: "PayPal webhook failed" });
-    }
-  });
-
-  app.get("*", (req, res) => {
-    res.status(404).json({ message: "Not Found" });
-  });
-
+  
   return createServer(app);
 }
