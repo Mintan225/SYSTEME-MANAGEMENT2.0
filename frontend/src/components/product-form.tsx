@@ -4,7 +4,7 @@ import { useState, useRef } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { insertProductSchema } from "@shared/schema"; // Gardez cette ligne si vous l'utilisez ailleurs, sinon elle peut être non utilisée ici.
+import { insertProductSchema } from "@shared/schema";
 import authService from "@/lib/auth";
 import { useToast } from "@/hooks/use-toast";
 import { z } from "zod";
@@ -21,25 +21,21 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
-import { Plus, Upload, X, Image } from "lucide-react";
+import { Plus, Upload, X } from "lucide-react";
 
 interface Category {
   id: number;
   name: string;
 }
 
-// --- DÉBUT DES CORRECTIONS ZOD ---
 const productFormSchema = z.object({
   name: z.string().min(1, "Le nom est requis"),
   description: z.string().optional(),
-  // Utilise z.coerce.number() pour convertir la chaîne en nombre et valider
   price: z.coerce.number().min(0.01, "Le prix est requis et doit être positif"),
-  // Utilise z.coerce.number() pour convertir la chaîne en nombre et valider
   categoryId: z.coerce.number().min(1, "La catégorie est requise"),
-  imageUrl: z.string().url("URL d'image invalide").optional().or(z.literal('')), // Permet une chaîne vide pour optional
+  imageUrl: z.string().url("URL d'image invalide").optional().or(z.literal('')),
   available: z.boolean().default(true),
 });
-// --- FIN DES CORRECTIONS ZOD ---
 
 type ProductFormData = z.infer<typeof productFormSchema>;
 
@@ -56,13 +52,12 @@ export function ProductForm({ product, onSuccess }: ProductFormProps) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  // --- DÉBUT DE LA CORRECTION POUR LA RÉCUPÉRATION DES CATÉGORIES ---
   const { data: categories = [], isLoading: isLoadingCategories } = useQuery<Category[]>({
     queryKey: ["/api/categories"],
     queryFn: async () => {
       try {
         const response = await fetch("/api/categories", {
-          headers: authService.getAuthHeaders(), // Assurez-vous que l'authentification est gérée si votre API la requiert
+          headers: authService.getAuthHeaders(),
         });
 
         if (!response.ok) {
@@ -72,38 +67,36 @@ export function ProductForm({ product, onSuccess }: ProductFormProps) {
         return response.json();
       } catch (error) {
         console.error("Erreur lors de la récupération des catégories:", error);
-        throw error; // Propagez l'erreur pour que TanStack Query puisse la gérer
+        throw error;
       }
     },
-    staleTime: 5 * 60 * 1000, // Les catégories ne changent pas souvent, 5 minutes de "stale"
-    cacheTime: 10 * 60 * 1000, // Gardez en cache pendant 10 minutes
+    staleTime: 5 * 60 * 1000,
+    cacheTime: 10 * 60 * 1000,
   });
-  // --- FIN DE LA CORRECTION POUR LA RÉCUPÉRATION DES CATÉGORIES ---
 
   const form = useForm<ProductFormData>({
     resolver: zodResolver(productFormSchema),
     defaultValues: {
       name: product?.name || "",
       description: product?.description || "",
-      // S'assure que le prix est une chaîne si initialement un nombre
-      price: product?.price ? product.price.toString() : "0.00", // Définit une valeur par défaut cohérente
-      categoryId: product?.categoryId?.toString() || "", // Garde en string pour la sélection initial
+      price: product?.price ? product.price : 0.01,
+      categoryId: product?.categoryId || 0,
       imageUrl: product?.imageUrl || "",
       available: product?.available ?? true,
     },
   });
 
   const createMutation = useMutation({
-    mutationFn: async (data: ProductFormData) => { // Type data correctement
+    mutationFn: async (data: ProductFormData) => {
       console.log("Creating product with data:", data);
       try {
         const response = await fetch("/api/products", {
           method: "POST",
           headers: {
-            "Content-Type": "application/json", // Ajouté explicitement
+            "Content-Type": "application/json",
             ...authService.getAuthHeaders(),
           },
-          body: JSON.stringify(data), // Zod a déjà converti price et categoryId en nombres
+          body: JSON.stringify(data),
         });
 
         if (!response.ok) {
@@ -140,14 +133,14 @@ export function ProductForm({ product, onSuccess }: ProductFormProps) {
   });
 
   const updateMutation = useMutation({
-    mutationFn: async (data: ProductFormData) => { // Type data correctement
+    mutationFn: async (data: ProductFormData) => {
       const response = await fetch(`/api/products/${product.id}`, {
         method: "PUT",
         headers: {
-          "Content-Type": "application/json", // Ajouté explicitement
+          "Content-Type": "application/json",
           ...authService.getAuthHeaders(),
         },
-        body: JSON.stringify(data), // Zod a déjà converti price et categoryId en nombres
+        body: JSON.stringify(data),
       });
 
       if (!response.ok) {
@@ -175,7 +168,7 @@ export function ProductForm({ product, onSuccess }: ProductFormProps) {
     },
   });
 
-  // Image upload handler
+  // Fonction de téléchargement d'image avec une gestion d'erreurs plus robuste
   const handleImageUpload = async (file: File) => {
     setIsUploading(true);
     try {
@@ -184,16 +177,22 @@ export function ProductForm({ product, onSuccess }: ProductFormProps) {
 
       const response = await fetch('/api/products/upload-image', {
         method: 'POST',
-        headers: {
-          ...authService.getAuthHeaders(),
-        },
+        headers: authService.getAuthHeaders(),
         body: formData,
       });
 
+      // --- Début de la gestion d'erreurs améliorée ---
       if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.message || 'Échec du téléchargement');
+        // Le serveur a répondu avec un statut d'erreur (400, 500, etc.)
+        const errorData = await response.json().catch(() => null);
+        
+        if (errorData && errorData.message) {
+            throw new Error(errorData.message);
+        } else {
+            throw new Error(`Le serveur a renvoyé un statut ${response.status} (${response.statusText}).`);
+        }
       }
+      // --- Fin de la gestion d'erreurs améliorée ---
 
       const result = await response.json();
       const imageUrl = result.imageUrl;
@@ -208,22 +207,20 @@ export function ProductForm({ product, onSuccess }: ProductFormProps) {
       
       return imageUrl;
     } catch (error) {
+      console.error("Erreur lors du téléchargement de l'image:", error);
       toast({
         title: "Erreur",
         description: error instanceof Error ? error.message : "Échec du téléchargement de l'image",
         variant: "destructive",
       });
-      throw error;
     } finally {
       setIsUploading(false);
     }
   };
 
-  // Handle file input change
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (file) {
-      // Validate file type
       if (!file.type.startsWith('image/')) {
         toast({
           title: "Erreur",
@@ -233,7 +230,6 @@ export function ProductForm({ product, onSuccess }: ProductFormProps) {
         return;
       }
       
-      // Validate file size (5MB)
       if (file.size > 5 * 1024 * 1024) {
         toast({
           title: "Erreur",
@@ -247,13 +243,11 @@ export function ProductForm({ product, onSuccess }: ProductFormProps) {
     }
   };
 
-  // Handle URL input
   const handleUrlChange = (url: string) => {
     form.setValue('imageUrl', url);
     setImagePreview(url);
   };
 
-  // Remove image
   const removeImage = () => {
     form.setValue('imageUrl', '');
     setImagePreview('');
@@ -264,7 +258,7 @@ export function ProductForm({ product, onSuccess }: ProductFormProps) {
 
   const onSubmit = (data: ProductFormData) => {
     try {
-      console.log("Données de soumission du formulaire (après Zod):", data); // Vérifiez les types ici
+      console.log("Données de soumission du formulaire (après Zod):", data);
       if (product) {
         updateMutation.mutate(data);
       } else {
@@ -282,9 +276,8 @@ export function ProductForm({ product, onSuccess }: ProductFormProps) {
 
   const isLoading = createMutation.isPending || updateMutation.isPending;
 
-  // Fonction utilitaire pour obtenir le nom de la catégorie
-  const getCategoryNameById = (id: string | number) => { // Accepte string ou number
-    const foundCategory = categories.find(c => c.id.toString() === id.toString());
+  const getCategoryNameById = (id: number | null) => {
+    const foundCategory = categories.find(c => c.id === id);
     return foundCategory ? foundCategory.name : "Sélectionner une catégorie";
   };
 
@@ -329,7 +322,7 @@ export function ProductForm({ product, onSuccess }: ProductFormProps) {
                   type="number"
                   step="0.01"
                   min="0"
-                  {...form.register("price")}
+                  {...form.register("price", { valueAsNumber: true })}
                   placeholder="0.00"
                 />
                 {form.formState.errors.price && (
@@ -342,8 +335,8 @@ export function ProductForm({ product, onSuccess }: ProductFormProps) {
               <div className="space-y-2">
                 <Label htmlFor="categoryId">Catégorie</Label>
                 <Select
-                  value={form.watch("categoryId")?.toString() || ""} // S'assure que la valeur est toujours une string pour Select
-                  onValueChange={(value) => form.setValue("categoryId", z.coerce.number().parse(value))} // Convertit en nombre pour le formulaire
+                  value={form.watch("categoryId")?.toString() || ""}
+                  onValueChange={(value) => form.setValue("categoryId", z.coerce.number().parse(value))}
                 >
                   <SelectTrigger>
                     <SelectValue>
@@ -371,11 +364,9 @@ export function ProductForm({ product, onSuccess }: ProductFormProps) {
                 )}
               </div>
 
-              {/* Image Upload Section */}
               <div className="space-y-3">
                 <Label>Image du produit</Label>
                 
-                {/* Image Preview */}
                 {imagePreview && (
                   <div className="relative w-full h-32 border border-gray-200 rounded-lg overflow-hidden">
                     <img 
@@ -395,9 +386,7 @@ export function ProductForm({ product, onSuccess }: ProductFormProps) {
                   </div>
                 )}
                 
-                {/* Upload Options */}
                 <div className="flex flex-col space-y-2">
-                  {/* File Upload */}
                   <div className="flex space-x-2">
                     <Button
                       type="button"
@@ -428,7 +417,6 @@ export function ProductForm({ product, onSuccess }: ProductFormProps) {
                     />
                   </div>
                   
-                  {/* URL Input */}
                   <div className="space-y-1">
                     <Label htmlFor="imageUrl" className="text-sm text-gray-600">Ou URL d'image</Label>
                     <Input
