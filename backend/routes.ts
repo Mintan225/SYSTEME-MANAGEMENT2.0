@@ -1,3 +1,5 @@
+// registerRoutes.ts
+
 import { Router, type Request, type Response, type NextFunction } from "express";
 import { eq } from "drizzle-orm";
 import jwt from "jsonwebtoken";
@@ -11,14 +13,14 @@ import express from "express";
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { APP_CONFIG, PaymentConfig, getAvailablePaymentMethods, getPaymentMethodLabel, isPaymentMethodEnabled } from "@shared/config";
-import { PaymentService }s from "./payment-service";
+import { PaymentService } from "./payment-service";
 import fs from 'fs';
 
 
 // Vérification et création du dossier d'upload si nécessaire
 const uploadDir = 'public/uploads/products';
 if (!fs.existsSync(uploadDir)) {
-  fs.mkdirSync(uploadDir, { recursive: true });
+  fs.mkdirSync(uploadDir, { recursive: true });
 }
 
 // Configure multer pour le stockage des images
@@ -51,18 +53,18 @@ const upload = multer({
 
 // Middleware de gestion d'erreurs pour Multer
 function multerErrorHandler(err: any, req: Request, res: Response, next: NextFunction) {
-  if (err instanceof multer.MulterError) {
-    // Erreur spécifique à Multer (ex: taille de fichier)
-    return res.status(400).json({ 
-      message: `Multer Error: ${err.message}` 
-    });
-  } else if (err) {
-    // Erreurs personnalisées (ex: type de fichier non valide)
-    return res.status(400).json({ 
-      message: err.message 
-    });
-  }
-  next();
+  if (err instanceof multer.MulterError) {
+    // Erreur spécifique à Multer (ex: taille de fichier)
+    return res.status(400).json({ 
+      message: `Multer Error: ${err.message}` 
+    });
+  } else if (err) {
+    // Erreurs personnalisées (ex: type de fichier non valide)
+    return res.status(400).json({ 
+      message: err.message 
+    });
+  }
+  next();
 }
 
 function authenticateToken(req: any, res: any, next: any) {
@@ -124,37 +126,41 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   app.use(express.static('public'));
-  app.use(express.json());
 
   // Point de terminaison d'upload d'images pour les produits
+  // Cette route doit être avant le middleware express.json()
   app.post(
-    "/api/products/upload-image", 
-    authenticateToken, 
-    authorizePermission(["products.create", "products.edit"]), 
-    upload.single('image'), // Le middleware d'upload est ici
-    multerErrorHandler, // Le middleware de gestion d'erreurs est juste après
-    (req, res) => {
-      // Si on arrive ici, l'upload s'est bien passé
-      try {
-        if (!req.file) {
-          return res.status(400).json({ message: "No image file provided" });
-        }
+    "/api/products/upload-image", 
+    authenticateToken, 
+    authorizePermission(["products.create", "products.edit"]), 
+    upload.single('image'), // Le middleware d'upload est ici
+    multerErrorHandler, // Le middleware de gestion d'erreurs est juste après
+    (req, res) => {
+      // Si on arrive ici, l'upload s'est bien passé
+      try {
+        if (!req.file) {
+          return res.status(400).json({ message: "No image file provided" });
+        }
 
-        const imageUrl = `/uploads/products/${req.file.filename}`;
-        
-        res.json({
-          message: "Image uploaded successfully",
-          imageUrl: imageUrl,
-          filename: req.file.filename
-        });
-      } catch (error) {
-        console.error("Error uploading image:", error);
-        res.status(500).json({ 
-          message: "Failed to upload image", 
-          error: error instanceof Error ? error.message : String(error) 
-        });
-      }
-  });
+        const imageUrl = `/uploads/products/${req.file.filename}`;
+        
+        res.json({
+          message: "Image uploaded successfully",
+          imageUrl: imageUrl,
+          filename: req.file.filename
+        });
+      } catch (error) {
+        console.error("Error uploading image:", error);
+        res.status(500).json({ 
+          message: "Failed to upload image", 
+          error: error instanceof Error ? error.message : String(error) 
+        });
+      }
+  });
+
+  // ⚠️  CETTE LIGNE A ÉTÉ DÉPLACÉE ⚠️
+  // Elle doit être placée après la route d'upload d'images pour éviter le conflit de parsing.
+  app.use(express.json());
 
   // Point de terminaison pour la suppression d'images de produits
   app.delete("/api/products/delete-image", authenticateToken, authorizePermission(["products.edit", "products.delete"]), async (req, res) => {
@@ -874,12 +880,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Webhooks
-  app.post("/api/webhooks/payment/stripe", async (req, res) => {
-    try {
-      await PaymentService.handleWebhook("stripe", req.body);
-    }
+  // Middleware de fin de route pour la gestion 404
+  app.use((req, res, next) => {
+    res.status(404).json({ message: "Not Found" });
   });
-  
+
   return createServer(app);
 }
