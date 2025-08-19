@@ -895,23 +895,44 @@ export async function registerRoutes(app: Express): Promise<Server> {
         ];
         
         let filePath = null;
-        for (const possiblePath of possiblePaths) {
-            if (fs.existsSync(possiblePath)) {
-                filePath = possiblePath;
-                break;
+        let pathFound = false;
+        
+        try {
+            // Test each path synchronously
+            for (const possiblePath of possiblePaths) {
+                try {
+                    fs.accessSync(possiblePath, fs.constants.F_OK);
+                    filePath = possiblePath;
+                    pathFound = true;
+                    break;
+                } catch (error) {
+                    // Path doesn't exist, continue to next
+                    continue;
+                }
             }
+        } catch (error) {
+            console.error('Error checking file paths:', error);
         }
         
-        if (filePath) {
-            res.sendFile(filePath);
+        if (pathFound && filePath) {
+            res.sendFile(path.resolve(filePath));
         } else {
+            // Fallback: try to serve a basic HTML response
             console.error('index.html not found in any of these paths:', possiblePaths);
-            res.status(404).json({ 
-                error: 'Application not found',
-                paths_checked: possiblePaths,
-                cwd: process.cwd(),
-                dirname: __dirname
-            });
+            res.setHeader('Content-Type', 'text/html');
+            res.status(404).send(`
+                <!DOCTYPE html>
+                <html>
+                <head><title>RestoManager</title></head>
+                <body>
+                    <h1>Application Loading...</h1>
+                    <p>Please wait while the application starts.</p>
+                    <script>
+                        setTimeout(() => window.location.reload(), 3000);
+                    </script>
+                </body>
+                </html>
+            `);
         }
     });
 
