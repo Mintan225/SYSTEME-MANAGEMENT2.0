@@ -110,8 +110,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
     // Add diagnostic routes
     app.use(diagnosticRouter);
 
-    // Servir les fichiers statiques depuis le dossier parent
-    app.use(express.static(path.join(process.cwd(), '..', 'public')));
+    // Servir les fichiers statiques - try multiple possible paths
+    const staticPaths = [
+        path.join(process.cwd(), 'dist', 'public'),
+        path.join(process.cwd(), 'public'),
+        path.join(process.cwd(), '..', 'public')
+    ];
+    
+    for (const staticPath of staticPaths) {
+        if (fs.existsSync(staticPath)) {
+            console.log(`Serving static files from: ${staticPath}`);
+            app.use(express.static(staticPath));
+            break;
+        }
+    }
     
     app.use(express.json());
 
@@ -869,8 +881,33 @@ export async function registerRoutes(app: Express): Promise<Server> {
     
     // Catch-all route for SPA
     app.get("/*", (req, res) => {
-        const filePath = path.join(process.cwd(), '..', 'public', 'index.html');
-        res.sendFile(filePath);
+        // Try different possible paths for index.html
+        const possiblePaths = [
+            path.join(process.cwd(), 'dist', 'public', 'index.html'),
+            path.join(process.cwd(), 'public', 'index.html'),
+            path.join(process.cwd(), '..', 'public', 'index.html'),
+            path.join(__dirname, '..', 'public', 'index.html')
+        ];
+        
+        let filePath = null;
+        for (const possiblePath of possiblePaths) {
+            if (require('fs').existsSync(possiblePath)) {
+                filePath = possiblePath;
+                break;
+            }
+        }
+        
+        if (filePath) {
+            res.sendFile(filePath);
+        } else {
+            console.error('index.html not found in any of these paths:', possiblePaths);
+            res.status(404).json({ 
+                error: 'Application not found',
+                paths_checked: possiblePaths,
+                cwd: process.cwd(),
+                dirname: __dirname
+            });
+        }
     });
 
     const server = createServer(app);
