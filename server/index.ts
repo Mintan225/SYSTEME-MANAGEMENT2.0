@@ -12,8 +12,7 @@ const app = express();
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 
-// Serve static files for uploaded images
-app.use('/uploads', express.static(path.join(process.cwd(), 'public/uploads')));
+// Note: Static file serving for uploads removed since images are now stored in database as base64
 
 app.use((req, res, next) => {
   const start = Date.now();

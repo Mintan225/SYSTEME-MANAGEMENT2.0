@@ -12,16 +12,9 @@ import { createServer, type Server } from "http";
 import { APP_CONFIG, PaymentConfig, getAvailablePaymentMethods, getPaymentMethodLabel, isPaymentMethodEnabled } from "@shared/config";
 import { PaymentService } from "./payment-service";
 
-// Configure multer for image uploads
-const storage_multer = multer.diskStorage({
-  destination: function (req, file, cb) {
-    cb(null, 'public/uploads/products');
-  },
-  filename: function (req, file, cb) {
-    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-    cb(null, 'product-' + uniqueSuffix + path.extname(file.originalname));
-  }
-});
+// Configure multer for memory storage (no temp files)
+// Images will be converted to base64 and stored in database
+const storage_multer = multer.memoryStorage();
 
 const fileFilter = (req: any, file: any, cb: any) => {
   // Accept only images
@@ -419,20 +412,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Image upload endpoint for products
+  // Image upload endpoint for products  
   app.post("/api/products/upload-image", authenticateToken, authorizePermission(["products.create", "products.edit"]), upload.single('image'), async (req, res) => {
     try {
       if (!req.file) {
         return res.status(400).json({ message: "No image file provided" });
       }
 
-      // Return the relative URL that can be used to access the image
-      const imageUrl = `/uploads/products/${req.file.filename}`;
+      // Convert image to base64 from memory buffer
+      const base64Image = `data:${req.file.mimetype};base64,${req.file.buffer.toString('base64')}`;
       
       res.json({
         message: "Image uploaded successfully",
-        imageUrl: imageUrl,
-        filename: req.file.filename
+        imageData: base64Image // Return base64 data instead of file path
       });
     } catch (error) {
       console.error("Error uploading image:", error);
