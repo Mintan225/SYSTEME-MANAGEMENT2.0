@@ -10,7 +10,7 @@ import {
 } from "@shared/schema";
 import { DEFAULT_PERMISSIONS } from "@shared/permissions";
 import { db } from "./db";
-import { eq, desc, and, gte, lte, sum, ne, isNull, isNotNull } from "drizzle-orm";
+import { eq, desc, asc, and, gte, lte, sum, ne, isNull, isNotNull } from "drizzle-orm";
 import bcrypt from "bcrypt";
 
 export interface IStorage {
@@ -250,6 +250,20 @@ export class DatabaseStorage implements IStorage {
       console.error("Error deleting product:", error);
       throw error;
     }
+  }
+
+  async getArchivedProducts(): Promise<Product[]> {
+    return await db.select().from(products)
+      .where(eq(products.archived, true))
+      .orderBy(products.name);
+  }
+
+  async restoreArchivedProduct(id: number): Promise<Product | undefined> {
+    const [restored] = await db.update(products)
+      .set({ archived: false, available: true })
+      .where(eq(products.id, id))
+      .returning();
+    return restored || undefined;
   }
 
   // Tables
@@ -588,9 +602,15 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Super Admin operations
-  async getSuperAdmin(id: number): Promise<SuperAdmin | undefined> {
-    const [superAdmin] = await db.select().from(superAdmins).where(eq(superAdmins.id, id));
-    return superAdmin;
+  async getSuperAdmin(id?: number): Promise<SuperAdmin | undefined> {
+    if (id) {
+      const [superAdmin] = await db.select().from(superAdmins).where(eq(superAdmins.id, id));
+      return superAdmin;
+    } else {
+      // Return any super admin if no id provided
+      const [superAdmin] = await db.select().from(superAdmins).limit(1);
+      return superAdmin;
+    }
   }
 
   async getSuperAdminByUsername(username: string): Promise<SuperAdmin | undefined> {

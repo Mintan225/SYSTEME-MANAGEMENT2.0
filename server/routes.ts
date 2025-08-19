@@ -13,6 +13,7 @@ import { createServer, type Server } from "http";
 import { APP_CONFIG } from "@shared/config";
 import fs from 'fs';
 import { ZodError } from "zod";
+import { diagnosticRouter } from "./diagnostic";
 
 // Configure multer pour le stockage en mémoire
 const storage_multer = multer.memoryStorage();
@@ -105,6 +106,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
             version: "1.0.0"
         });
     });
+
+    // Add diagnostic routes
+    app.use(diagnosticRouter);
 
     // Servir les fichiers statiques depuis le dossier parent
     app.use(express.static(path.join(process.cwd(), '..', 'public')));
