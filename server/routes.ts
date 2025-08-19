@@ -4,6 +4,7 @@ import jwt from "jsonwebtoken";
 import bcrypt from "bcrypt";
 import multer from "multer";
 import path from "path";
+import { fileURLToPath } from 'url';
 import { insertUserSchema, insertCategorySchema, insertProductSchema, insertTableSchema, insertOrderSchema, insertOrderItemSchema, insertSaleSchema, insertExpenseSchema, insertSuperAdminSchema } from "@shared/schema";
 import { DEFAULT_PERMISSIONS, type UserRole } from "@shared/permissions";
 import { storage } from "./storage";
@@ -14,6 +15,10 @@ import { APP_CONFIG } from "@shared/config";
 import fs from 'fs';
 import { ZodError } from "zod";
 import { diagnosticRouter } from "./diagnostic";
+
+// ES modules equivalent of __dirname
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 // Configure multer pour le stockage en mémoire
 const storage_multer = multer.memoryStorage();
