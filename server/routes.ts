@@ -483,39 +483,90 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
     app.post("/api/tables", authenticateToken, authorizePermission(["tables.create"]), async (req, res) => {
         try {
-            console.log("[TABLE_CREATE_DEBUG] Request body:", JSON.stringify(req.body));
+            console.log("[TABLE_CREATE_DEBUG] Request body received:", JSON.stringify(req.body));
+            console.log("[TABLE_CREATE_DEBUG] Headers:", req.headers);
+            
+            // Check for required fields first
+            if (!req.body.number || !req.body.capacity) {
+                console.log("[TABLE_CREATE_DEBUG] Missing required fields:", {
+                    number: req.body.number,
+                    capacity: req.body.capacity
+                });
+                return res.status(400).json({
+                    message: "Missing required fields",
+                    details: "Both 'number' and 'capacity' are required",
+                    received: req.body
+                });
+            }
+
             const { number, capacity } = req.body;
             
-            const tableData = {
-                number: parseInt(number),
-                capacity: parseInt(capacity),
-                status: "available"
-            };
+            // Parse integers with error checking
+            const parsedNumber = parseInt(number);
+            const parsedCapacity = parseInt(capacity);
             
-            console.log("[TABLE_CREATE_DEBUG] Data to parse:", JSON.stringify(tableData));
-            const parsedData = insertTableSchema.safeParse(tableData);
-            if (!parsedData.success) {
-                console.log("[TABLE_CREATE_DEBUG] Validation failed:", parsedData.error.issues);
+            if (isNaN(parsedNumber) || isNaN(parsedCapacity)) {
+                console.log("[TABLE_CREATE_DEBUG] Invalid number format:", {
+                    number: number,
+                    capacity: capacity,
+                    parsedNumber: parsedNumber,
+                    parsedCapacity: parsedCapacity
+                });
                 return res.status(400).json({
-                    message: "Données de table invalides.",
-                    errors: parsedData.error.issues
+                    message: "Invalid number format",
+                    details: "Number and capacity must be valid integers"
                 });
             }
             
-            console.log("[TABLE_CREATE_DEBUG] Validation passed:", JSON.stringify(parsedData.data));
-            
-            // Génération du QR Code
-            const qrCode = `https://${req.headers.host}/table/${parsedData.data.number}`;
-            const finalTableData = {
-                ...parsedData.data,
-                qrCode: qrCode
+            const tableData = {
+                number: parsedNumber,
+                capacity: parsedCapacity,
+                qrCode: req.body.qrCode || `https://${req.headers.host}/table/${parsedNumber}`,
+                status: "available"
             };
             
-            console.log("[TABLE_CREATE_DEBUG] Final data to save:", JSON.stringify(finalTableData));
-            const table = await storage.createTable(finalTableData);
+            console.log("[TABLE_CREATE_DEBUG] Data to validate:", JSON.stringify(tableData));
+            
+            // Use safeParse for better error handling
+            const parsedData = insertTableSchema.safeParse(tableData);
+            if (!parsedData.success) {
+                console.log("[TABLE_CREATE_DEBUG] Schema validation failed:", parsedData.error.issues);
+                return res.status(400).json({
+                    message: "Table data validation failed",
+                    errors: parsedData.error.issues,
+                    details: "Please check that all fields are properly formatted"
+                });
+            }
+            
+            console.log("[TABLE_CREATE_DEBUG] Schema validation passed:", JSON.stringify(parsedData.data));
+            
+            // Create table with validated data
+            const table = await storage.createTable(parsedData.data);
+            console.log("[TABLE_CREATE_DEBUG] Table created successfully:", table);
+            
             res.json(table);
         } catch (error) {
-            console.error("Error creating table:", error);
+            console.error("[TABLE_CREATE_DEBUG] Error creating table:", error);
+            
+            // Handle specific error types
+            if (error instanceof Error) {
+                // Check for duplicate key constraint
+                if (error.message.includes('duplicate') || error.message.includes('unique') || error.message.includes('UNIQUE')) {
+                    return res.status(409).json({
+                        message: "Table number already exists",
+                        error: "A table with this number already exists in the system"
+                    });
+                }
+                
+                // Check for database constraint errors
+                if (error.message.includes('constraint') || error.message.includes('violates')) {
+                    return res.status(400).json({
+                        message: "Database constraint violation",
+                        error: error.message
+                    });
+                }
+            }
+            
             res.status(500).json({
                 message: "Failed to create table",
                 error: error instanceof Error ? error.message : String(error)

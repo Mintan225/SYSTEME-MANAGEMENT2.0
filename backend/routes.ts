@@ -436,19 +436,61 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/tables", authenticateToken, authorizePermission(["tables.create"]), async (req, res) => {
     try {
-      const { number, capacity } = req.body;
-      const qrCode = `https://${req.headers.host}/table/${number}`;
-      const tableData = {
-        number: parseInt(number),
-        capacity: parseInt(capacity),
-        qrCode: qrCode,
+      console.log("[TABLE_CREATE_DEBUG] Request body received:", req.body);
+      
+      // Validate required fields
+      if (!req.body.number || !req.body.capacity) {
+        console.log("[TABLE_CREATE_DEBUG] Missing required fields. number:", req.body.number, "capacity:", req.body.capacity);
+        return res.status(400).json({ 
+          message: "Missing required fields", 
+          details: "Both 'number' and 'capacity' are required" 
+        });
+      }
+
+      // Parse and validate the table data
+      const rawTableData = {
+        number: parseInt(req.body.number),
+        capacity: parseInt(req.body.capacity),
+        qrCode: req.body.qrCode || `https://${req.headers.host}/table/${req.body.number}`,
         status: "available"
       };
+      
+      console.log("[TABLE_CREATE_DEBUG] Raw table data:", rawTableData);
+
+      // Validate with schema
+      const tableData = insertTableSchema.parse(rawTableData);
+      console.log("[TABLE_CREATE_DEBUG] Validated table data:", tableData);
+      
       const table = await storage.createTable(tableData);
+      console.log("[TABLE_CREATE_DEBUG] Table created successfully:", table);
+      
       res.json(table);
     } catch (error) {
-      console.error("Error creating table:", error);
-      res.status(500).json({ message: "Failed to create table", error: error instanceof Error ? error.message : String(error) });
+      console.error("[TABLE_CREATE_DEBUG] Error creating table:", error);
+      
+      if (error instanceof Error) {
+        // Check if it's a validation error
+        if (error.message.includes('Expected') || error.message.includes('Invalid')) {
+          return res.status(400).json({ 
+            message: "Validation error", 
+            error: error.message,
+            details: "Please check that number and capacity are valid integers"
+          });
+        }
+        
+        // Check if it's a duplicate key error
+        if (error.message.includes('duplicate') || error.message.includes('unique')) {
+          return res.status(409).json({ 
+            message: "Table number already exists", 
+            error: error.message 
+          });
+        }
+      }
+      
+      res.status(500).json({ 
+        message: "Failed to create table", 
+        error: error instanceof Error ? error.message : String(error) 
+      });
     }
   });
 
