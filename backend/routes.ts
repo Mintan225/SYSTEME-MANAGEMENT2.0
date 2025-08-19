@@ -17,23 +17,9 @@ import { PaymentService } from "./payment-service";
 import fs from 'fs';
 
 
-// Vérification et création du dossier d'upload si nécessaire
-// Le serveur s'exécute depuis le dossier backend/, donc on remonte d'un niveau
-const uploadDir = path.join(process.cwd(), '..', 'public', 'uploads', 'products');
-if (!fs.existsSync(uploadDir)) {
-  fs.mkdirSync(uploadDir, { recursive: true });
-}
-
-// Configure multer pour le stockage des images
-const storage_multer = multer.diskStorage({
-  destination: function (req, file, cb) {
-    cb(null, uploadDir);
-  },
-  filename: function (req, file, cb) {
-    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-    cb(null, 'product-' + uniqueSuffix + path.extname(file.originalname));
-  }
-});
+// Configure multer pour le stockage en mémoire (plus besoin de dossier)
+// Les images seront converties en base64 et stockées en DB
+const storage_multer = multer.memoryStorage();
 
 const fileFilter = (req: any, file: any, cb: any) => {
   // Accepte uniquement les images
@@ -144,18 +130,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
           return res.status(400).json({ message: "No image file provided" });
         }
 
-        // Convertir l'image en base64
-        const fs = require('fs');
-        const imageBuffer = fs.readFileSync(req.file.path);
-        const base64Image = `data:${req.file.mimetype};base64,${imageBuffer.toString('base64')}`;
-        
-        // Nettoyer le fichier temporaire
-        fs.unlinkSync(req.file.path);
+        // Convertir l'image en base64 depuis le buffer mémoire
+        const base64Image = `data:${req.file.mimetype};base64,${req.file.buffer.toString('base64')}`;
         
         res.json({
           message: "Image uploaded successfully",
-          imageData: base64Image, // Retourne les données base64
-          filename: req.file.filename
+          imageData: base64Image // Retourne les données base64
         });
       } catch (error) {
         console.error("Error uploading image:", error);
