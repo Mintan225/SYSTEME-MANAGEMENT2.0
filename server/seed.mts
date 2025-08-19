@@ -59,11 +59,19 @@ async function seed() {
       // Assurez-vous que bcrypt est correctement importé et utilisé.
       const hashedPassword = await bcrypt.hash('motdepasse_tres_secret', 10); // REMPLACEZ 'motdepasse_tres_secret' PAR UN MOT DE PASSE FORT
       await db.insert(users).values({
-        id: 'clv6b42b600003b6i4e1k8q9f', // Utilisez un UUID réel ou un ID généré si votre base de données le fait.
         username: 'admin',
         email: 'admin@example.com',
-        passwordHash: hashedPassword, // Utilisez le mot de passe haché
-        role: 'super_admin',
+        password: hashedPassword, // Utilisez le mot de passe haché
+        fullName: 'Administrateur',
+        role: 'admin',
+        permissions: ['users.view', 'users.create', 'users.edit', 'users.delete',
+                     'products.view', 'products.create', 'products.edit', 'products.delete',
+                     'categories.view', 'categories.create', 'categories.edit', 'categories.delete',
+                     'tables.view', 'tables.create', 'tables.edit', 'tables.delete',
+                     'orders.view', 'orders.create', 'orders.edit', 'orders.delete', 'orders.update_status',
+                     'sales.view', 'sales.create', 'sales.edit', 'sales.delete',
+                     'expenses.view', 'expenses.create', 'expenses.edit', 'expenses.delete'],
+        isActive: true
         // Ajoutez d'autres champs requis par votre table 'users'
       });
       console.log('Super admin par défaut amorcé.');

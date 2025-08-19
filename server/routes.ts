@@ -453,25 +453,36 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
     app.post("/api/tables", authenticateToken, authorizePermission(["tables.create"]), async (req, res) => {
         try {
+            console.log("[TABLE_CREATE_DEBUG] Request body:", JSON.stringify(req.body));
             const { number, capacity } = req.body;
-            const parsedData = insertTableSchema.safeParse({
+            
+            const tableData = {
                 number: parseInt(number),
                 capacity: parseInt(capacity),
                 status: "available"
-            });
+            };
+            
+            console.log("[TABLE_CREATE_DEBUG] Data to parse:", JSON.stringify(tableData));
+            const parsedData = insertTableSchema.safeParse(tableData);
             if (!parsedData.success) {
+                console.log("[TABLE_CREATE_DEBUG] Validation failed:", parsedData.error.issues);
                 return res.status(400).json({
                     message: "Données de table invalides.",
                     errors: parsedData.error.issues
                 });
             }
+            
+            console.log("[TABLE_CREATE_DEBUG] Validation passed:", JSON.stringify(parsedData.data));
+            
             // Génération du QR Code
             const qrCode = `https://${req.headers.host}/table/${parsedData.data.number}`;
-            const tableData = {
+            const finalTableData = {
                 ...parsedData.data,
                 qrCode: qrCode
             };
-            const table = await storage.createTable(tableData);
+            
+            console.log("[TABLE_CREATE_DEBUG] Final data to save:", JSON.stringify(finalTableData));
+            const table = await storage.createTable(finalTableData);
             res.json(table);
         } catch (error) {
             console.error("Error creating table:", error);
@@ -573,7 +584,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
             if (Object.keys(req.body).length === 0) {
                 return res.status(400).json({ message: "Aucune donnée de mise à jour fournie." });
             }
-            const orderData = insertOrderSchema.partial().parse(req.body);
+            
+            console.log("[ORDER_UPDATE_DEBUG] Request body:", JSON.stringify(req.body));
+            
+            // Parse with error handling
+            let orderData;
+            try {
+                orderData = insertOrderSchema.partial().parse(req.body);
+                console.log("[ORDER_UPDATE_DEBUG] Parsed data:", JSON.stringify(orderData));
+            } catch (parseError) {
+                console.error("[ORDER_UPDATE_DEBUG] Parse error:", parseError);
+                if (parseError instanceof ZodError) {
+                    return res.status(400).json({
+                        message: "Données de commande invalides.",
+                        errors: parseError.issues
+                    });
+                }
+                throw parseError;
+            }
             if (orderData.status === 'completed') {
                 orderData.paymentStatus = 'paid';
                 orderData.completedAt = new Date();

@@ -12,6 +12,7 @@
     "build": "npx vite build && node esbuild.config.js",
     "start": "cross-env NODE_ENV=production node dist/index.js",
     "generate-secrets": "node generate-secrets.cjs",
+    "test-auth": "node test-auth.cjs",
     "check": "tsc",
     "db:migrate": "ts-node drizzle.config.ts drizzle-kit migrate",
     "db:seed": "cross-env NODE_ENV=development tsx -r dotenv/config server/seed.mts"
