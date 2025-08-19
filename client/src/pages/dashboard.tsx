@@ -8,14 +8,21 @@ import { Plus, Package, ShoppingCart, QrCode, Receipt } from "lucide-react";
 import { Link } from "wouter";
 
 export default function Dashboard() {
-  const { data: todayStats, isLoading: statsLoading } = useQuery({
-    queryKey: ["/api/analytics/daily"],
-    refetchInterval: 5000, // Actualisation toutes les 5 secondes
-  });
+  // Temporarily disable these queries until the analytics endpoints are implemented
+  const todayStats = null;
+  const statsLoading = false;
+  const weeklyStats = [];
+  const weeklyLoading = false;
 
-  const { data: weeklyStats = [], isLoading: weeklyLoading } = useQuery({
-    queryKey: ["/api/analytics/weekly"],
-  });
+  // TODO: Implement analytics endpoints in the backend
+  // const { data: todayStats, isLoading: statsLoading } = useQuery({
+  //   queryKey: ["/api/analytics/daily"],
+  //   refetchInterval: 30000, // Reduced frequency
+  // });
+
+  // const { data: weeklyStats = [], isLoading: weeklyLoading } = useQuery({
+  //   queryKey: ["/api/analytics/weekly"],
+  // });
 
   const { data: activeOrders = [], isLoading: ordersLoading } = useQuery({
     queryKey: ["/api/orders", { active: true }],
