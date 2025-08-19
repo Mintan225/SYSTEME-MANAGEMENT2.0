@@ -100,8 +100,7 @@ export function ProductForm({ product, onSuccess }: ProductFormProps) {
         const response = await fetch("/api/products", {
           method: "POST",
           headers: {
-            "Content-Type": "application/json", // Ajouté explicitement
-            ...authService.getAuthHeaders(),
+            ...authService.getAuthHeadersWithJson(),
           },
           body: JSON.stringify(data), // Zod a déjà converti price et categoryId en nombres
         });
@@ -144,8 +143,7 @@ export function ProductForm({ product, onSuccess }: ProductFormProps) {
       const response = await fetch(`/api/products/${product.id}`, {
         method: "PUT",
         headers: {
-          "Content-Type": "application/json", // Ajouté explicitement
-          ...authService.getAuthHeaders(),
+          ...authService.getAuthHeadersWithJson(),
         },
         body: JSON.stringify(data), // Zod a déjà converti price et categoryId en nombres
       });
@@ -185,7 +183,9 @@ export function ProductForm({ product, onSuccess }: ProductFormProps) {
       const response = await fetch('/api/products/upload-image', {
         method: 'POST',
         headers: {
-          ...authService.getAuthHeaders(),
+          // Ne pas définir Content-Type pour multipart/form-data
+          // Le navigateur le fera automatiquement avec le boundary correct
+          'Authorization': authService.getToken() ? `Bearer ${authService.getToken()}` : '',
         },
         body: formData,
       });

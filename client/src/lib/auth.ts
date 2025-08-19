@@ -110,6 +110,16 @@ class AuthService {
   }
 
   getAuthHeaders(): Record<string, string> {
+    const headers: Record<string, string> = {};
+
+    if (this.token) {
+      headers['Authorization'] = `Bearer ${this.token}`;
+    }
+
+    return headers;
+  }
+
+  getAuthHeadersWithJson(): Record<string, string> {
     const headers: Record<string, string> = {
       'Content-Type': 'application/json',
     };

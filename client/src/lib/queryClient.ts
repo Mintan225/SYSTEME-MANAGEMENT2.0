@@ -13,13 +13,12 @@ export async function apiRequest(
   method: string = "GET",
   data?: unknown | undefined,
 ): Promise<Response> {
-  const authHeaders = authService.getAuthHeaders();
+  const authHeaders = authService.getAuthHeadersWithJson();
   
   const res = await fetch(url, {
     method,
     headers: {
       ...authHeaders,
-      "Content-Type": "application/json",
     },
     body: data ? JSON.stringify(data) : undefined,
     credentials: "include",
