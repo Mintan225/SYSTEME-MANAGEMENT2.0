@@ -21,7 +21,7 @@ class AuthService {
     if (typeof window !== 'undefined') {
       const token = localStorage.getItem('auth_token');
       const userData = localStorage.getItem('auth_user');
-      
+
       if (token && userData) {
         this.token = token;
         this.user = JSON.parse(userData);
@@ -61,7 +61,7 @@ class AuthService {
     this.token = data.token;
     this.user = data.user;
     this.saveToStorage(data.token, data.user);
-    
+
     return data;
   }
 
@@ -83,7 +83,7 @@ class AuthService {
     this.token = data.token;
     this.user = data.user;
     this.saveToStorage(data.token, data.user);
-    
+
     return data;
   }
 
@@ -109,13 +109,16 @@ class AuthService {
     return this.token !== null && this.user !== null;
   }
 
-  getAuthHeaders(): Record<string, string> {
-    const headers: Record<string, string> = {
-      'Content-Type': 'application/json',
-    };
+  // ⚠️ Fonction corrigée pour accepter un paramètre optionnel.
+  getAuthHeaders(includeContentType = true): Record<string, string> {
+    const headers: Record<string, string> = {};
 
     if (this.token) {
       headers['Authorization'] = `Bearer ${this.token}`;
+    }
+
+    if (includeContentType) {
+      headers['Content-Type'] = 'application/json';
     }
 
     return headers;
