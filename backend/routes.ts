@@ -158,9 +158,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
   });
 
-  // ⚠️  CETTE LIGNE A ÉTÉ DÉPLACÉE ⚠️
-  // Elle doit être placée après la route d'upload d'images pour éviter le conflit de parsing.
-  app.use(express.json());
+  // ⚠️ CETTE LIGNE EST SUPPRIMÉE POUR ÉVITER LE CONFLIT ⚠️
+  // app.use(express.json());
 
   // Point de terminaison pour la suppression d'images de produits
   app.delete("/api/products/delete-image", authenticateToken, authorizePermission(["products.edit", "products.delete"]), async (req, res) => {
@@ -868,22 +867,110 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Routes pour les méthodes de paiement
-  app.get("/api/payment-methods", authenticateToken, authorizePermission(["config.view"]), async (req, res) => {
+  app.get("/api/payment-methods", async (req, res) => {
     try {
-      res.json({
-        availableMethods: getAvailablePaymentMethods(),
-        enabledMethods: getAvailablePaymentMethods().filter(method => isPaymentMethodEnabled(method))
-      });
+      const methods = getAvailablePaymentMethods();
+      res.json(methods.map(method => ({ 
+        id: method, 
+        label: getPaymentMethodLabel(method),
+        enabled: isPaymentMethodEnabled(method)
+      })));
     } catch (error) {
-      console.error("Error fetching payment methods:", error);
       res.status(500).json({ message: "Failed to fetch payment methods" });
     }
   });
 
-  // Middleware de fin de route pour la gestion 404
-  app.use((req, res, next) => {
-    res.status(404).json({ message: "Not Found" });
+
+  // Route pour la génération de QR code pour une table
+  app.get("/api/tables/:id/qrcode", authenticateToken, authorizePermission(["tables.view"]), async (req, res) => {
+    try {
+      const tableId = Number(req.params.id);
+      const table = await storage.getTable(tableId);
+      if (!table) {
+        return res.status(404).json({ message: "Table not found" });
+      }
+
+      const qrCodeUrl = table.qrCode;
+      
+      res.json({ qrCodeUrl });
+
+    } catch (error) {
+      console.error("Error generating QR code:", error);
+      res.status(500).json({ message: "Failed to generate QR code" });
+    }
   });
 
-  return createServer(app);
+
+  // Route pour le tableau de bord (Dashboard)
+  app.get("/api/dashboard", authenticateToken, authorizePermission(["dashboard.view"]), async (req, res) => {
+    try {
+      const salesData = await storage.getSales();
+      const expensesData = await storage.getExpenses();
+      const activeOrders = await storage.getActiveOrders();
+      const completedOrders = await storage.getCompletedOrders();
+      const availableTables = await storage.getAvailableTables();
+      
+      const totalSales = salesData.reduce((sum, sale) => sum + parseFloat(sale.amount), 0);
+      const totalExpenses = expensesData.reduce((sum, expense) => sum + parseFloat(expense.amount), 0);
+      const netProfit = totalSales - totalExpenses;
+      
+      res.json({
+        totalSales,
+        totalExpenses,
+        netProfit,
+        activeOrdersCount: activeOrders.length,
+        completedOrdersCount: completedOrders.length,
+        availableTablesCount: availableTables.length,
+        recentSales: salesData.slice(-5), // 5 dernières ventes
+        recentOrders: activeOrders.slice(-5) // 5 dernières commandes actives
+      });
+    } catch (error) {
+      console.error("Error fetching dashboard data:", error);
+      res.status(500).json({ message: "Failed to fetch dashboard data" });
+    }
+  });
+
+
+  // Routes pour le service de paiement
+  const paymentService = new PaymentService(storage);
+
+  // Route de paiement
+  app.post("/api/payments/process", async (req, res) => {
+    try {
+      const { orderId, paymentMethod, amount, paymentDetails } = req.body;
+      if (!orderId || !paymentMethod || !amount) {
+        return res.status(400).json({ message: "Missing required payment fields" });
+      }
+      
+      const order = await storage.getOrder(orderId);
+      if (!order) {
+        return res.status(404).json({ message: "Order not found" });
+      }
+
+      if (order.paymentStatus === 'paid') {
+        return res.status(400).json({ message: "Order is already paid" });
+      }
+      
+      // Processus de paiement simulé
+      const transactionId = await paymentService.processPayment(orderId, paymentMethod, amount, paymentDetails);
+      
+      res.status(200).json({ message: "Payment processed successfully", transactionId });
+      
+    } catch (error) {
+      console.error("Error processing payment:", error);
+      res.status(500).json({ message: "Failed to process payment", error: error instanceof Error ? error.message : String(error) });
+    }
+  });
+
+  // Route de webhook pour les paiements (souvent utilisée pour la confirmation asynchrone)
+  app.post("/api/payments/webhook", async (req, res) => {
+    // Logique pour gérer les notifications de paiement externes
+    const payload = req.body;
+    console.log("Webhook received:", payload);
+    res.status(200).send("OK");
+  });
+  
+  // Création et retour du serveur HTTP
+  const server = createServer(app);
+  return server;
 }
