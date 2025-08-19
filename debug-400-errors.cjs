@@ -78,7 +78,7 @@ async function getAuthToken() {
     for (const password of passwords) {
         try {
             const response = await makeRequest('POST', '/api/auth/login', {
-                username: 'admin',
+                username: 'testadmin',
                 password: password
             });
 

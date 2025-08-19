@@ -240,6 +240,36 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
     });
 
+    
+    // Route pour récupérer le menu d'une table spécifique (pour les QR codes)
+    app.get("/api/menu/:tableNumber", async (req, res) => {
+        try {
+            const tableNumber = parseInt(req.params.tableNumber);
+            if (isNaN(tableNumber)) {
+                return res.status(400).json({ message: "Numéro de table invalide" });
+            }
+
+            // Vérifier que la table existe
+            const table = await storage.getTableByNumber(tableNumber);
+            if (!table) {
+                return res.status(404).json({ message: "Table non trouvée" });
+            }
+
+            // Récupérer les catégories et produits
+            const categories = await storage.getCategories();
+            const products = await storage.getProducts();
+
+            res.json({
+                table,
+                categories,
+                products: products.filter(p => p.available && !p.archived)
+            });
+        } catch (error) {
+            console.error("Error fetching menu for table:", error);
+            res.status(500).json({ message: "Failed to fetch menu" });
+        }
+    });
+
     // Routes d'authentification
     app.post("/api/auth/register", async (req, res) => {
         try {
