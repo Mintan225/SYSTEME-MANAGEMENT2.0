@@ -896,7 +896,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         
         let filePath = null;
         for (const possiblePath of possiblePaths) {
-            if (require('fs').existsSync(possiblePath)) {
+            if (fs.existsSync(possiblePath)) {
                 filePath = possiblePath;
                 break;
             }
