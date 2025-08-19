@@ -44,7 +44,8 @@ export const products = pgTable("products", {
   description: text("description"),
   price: decimal("price", { precision: 10, scale: 2 }).notNull(),
   categoryId: integer("category_id").references(() => categories.id),
-  imageUrl: text("image_url"),
+  imageUrl: text("image_url"), // Garde pour compatibilité
+  imageData: text("image_data"), // Nouveau: stockage base64
   available: boolean("available").default(true).notNull(),
   archived: boolean("archived").default(false).notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),

@@ -11,7 +11,8 @@ import { execSync } from "child_process";
 const app = express();
 
 // 1) Servir les fichiers statiques (images uploadées)
-app.use("/uploads", express.static(path.join(process.cwd(), "public/uploads")));
+// Le serveur s'exécute depuis le dossier backend/, donc on remonte d'un niveau
+app.use("/uploads", express.static(path.join(process.cwd(), "..", "public", "uploads")));
 
 // 2) Accepter form-data classique (texte/url-encoded)
 app.use(express.urlencoded({ extended: true }));

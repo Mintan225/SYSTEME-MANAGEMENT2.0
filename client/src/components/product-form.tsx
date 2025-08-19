@@ -196,17 +196,18 @@ export function ProductForm({ product, onSuccess }: ProductFormProps) {
       }
 
       const result = await response.json();
-      const imageUrl = result.imageUrl;
+      const imageData = result.imageData;
       
-      form.setValue('imageUrl', imageUrl);
-      setImagePreview(imageUrl);
+      // Stocker les données base64 dans le champ approprié
+      form.setValue('imageUrl', imageData); // Utilise imageUrl pour la compatibilité
+      setImagePreview(imageData);
       
       toast({
         title: "Succès",
         description: "Image téléchargée avec succès",
       });
       
-      return imageUrl;
+      return imageData;
     } catch (error) {
       toast({
         title: "Erreur",

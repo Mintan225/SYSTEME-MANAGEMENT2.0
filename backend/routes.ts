@@ -18,9 +18,10 @@ import fs from 'fs';
 
 
 // Vérification et création du dossier d'upload si nécessaire
-const uploadDir = 'public/uploads/products';
+// Le serveur s'exécute depuis le dossier backend/, donc on remonte d'un niveau
+const uploadDir = path.join(process.cwd(), '..', 'public', 'uploads', 'products');
 if (!fs.existsSync(uploadDir)) {
-  fs.mkdirSync(uploadDir, { recursive: true });
+  fs.mkdirSync(uploadDir, { recursive: true });
 }
 
 // Configure multer pour le stockage des images
@@ -125,38 +126,45 @@ export async function registerRoutes(app: Express): Promise<Server> {
     });
   });
 
-  app.use(express.static('public'));
+  // Servir les fichiers statiques depuis le dossier parent
+  app.use(express.static(path.join(process.cwd(), '..', 'public')));
 
-  // Point de terminaison d'upload d'images pour les produits
-  // Cette route doit être avant le middleware express.json()
-  app.post(
-    "/api/products/upload-image", 
-    authenticateToken, 
-    authorizePermission(["products.create", "products.edit"]), 
-    upload.single('image'), // Le middleware d'upload est ici
-    multerErrorHandler, // Le middleware de gestion d'erreurs est juste après
-    (req, res) => {
-      // Si on arrive ici, l'upload s'est bien passé
-      try {
-        if (!req.file) {
-          return res.status(400).json({ message: "No image file provided" });
-        }
+  // Point de terminaison d'upload d'images pour les produits
+  // Cette route doit être avant le middleware express.json()
+  app.post(
+    "/api/products/upload-image", 
+    authenticateToken, 
+    authorizePermission(["products.create", "products.edit"]), 
+    upload.single('image'), // Le middleware d'upload est ici
+    multerErrorHandler, // Le middleware de gestion d'erreurs est juste après
+    (req, res) => {
+      // Si on arrive ici, l'upload s'est bien passé
+      try {
+        if (!req.file) {
+          return res.status(400).json({ message: "No image file provided" });
+        }
 
-        const imageUrl = `/uploads/products/${req.file.filename}`;
-        
-        res.json({
-          message: "Image uploaded successfully",
-          imageUrl: imageUrl,
-          filename: req.file.filename
-        });
-      } catch (error) {
-        console.error("Error uploading image:", error);
-        res.status(500).json({ 
-          message: "Failed to upload image", 
-          error: error instanceof Error ? error.message : String(error) 
-        });
-      }
-  });
+        // Convertir l'image en base64
+        const fs = require('fs');
+        const imageBuffer = fs.readFileSync(req.file.path);
+        const base64Image = `data:${req.file.mimetype};base64,${imageBuffer.toString('base64')}`;
+        
+        // Nettoyer le fichier temporaire
+        fs.unlinkSync(req.file.path);
+        
+        res.json({
+          message: "Image uploaded successfully",
+          imageData: base64Image, // Retourne les données base64
+          filename: req.file.filename
+        });
+      } catch (error) {
+        console.error("Error uploading image:", error);
+        res.status(500).json({ 
+          message: "Failed to upload image", 
+          error: error instanceof Error ? error.message : String(error) 
+        });
+      }
+  });
 
   // ⚠️ CETTE LIGNE EST SUPPRIMÉE POUR ÉVITER LE CONFLIT ⚠️
   // app.use(express.json());
@@ -170,8 +178,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "Image URL is required" });
       }
         
-      const filename = path.basename(imageUrl);
-      const filepath = path.join(process.cwd(), 'public', 'uploads', 'products', filename);
+      const filename = path.basename(imageUrl);
+      const filepath = path.join(process.cwd(), '..', 'public', 'uploads', 'products', filename);
       
       if (fs.existsSync(filepath)) {
         fs.unlinkSync(filepath);
