@@ -221,8 +221,8 @@ function ExpenseForm({ expense, onSuccess }: ExpenseFormProps) {
                   <div className="space-y-2">
                     <Label htmlFor="category">Catégorie</Label>
                     <Select
-                      value={form.watch("category")}
                       onValueChange={(value) => form.setValue("category", value)}
+                      defaultValue={expense?.category || ""}
                     >
                       <SelectTrigger>
                         <SelectValue placeholder="Sélectionner une catégorie" />

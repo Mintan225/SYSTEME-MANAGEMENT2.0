@@ -135,7 +135,6 @@ function SaleForm({ onSuccess }: { onSuccess?: () => void }) {
                   <div>
                     <Label htmlFor="paymentMethod">Méthode de paiement</Label>
                     <Select
-                      value={form.watch("paymentMethod")}
                       onValueChange={(value) => form.setValue("paymentMethod", value)}
                     >
                       <SelectTrigger>
