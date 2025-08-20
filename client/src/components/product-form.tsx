@@ -343,13 +343,11 @@ export function ProductForm({ product, onSuccess }: ProductFormProps) {
               <div className="space-y-2">
                 <Label htmlFor="categoryId">Catégorie</Label>
                 <Select
-                  value={form.watch("categoryId")?.toString() || ""} // S'assure que la valeur est toujours une string pour Select
-                  onValueChange={(value) => form.setValue("categoryId", z.coerce.number().parse(value))} // Convertit en nombre pour le formulaire
+                  defaultValue={product?.categoryId?.toString() || ""}
+                  onValueChange={(value) => form.setValue("categoryId", z.coerce.number().parse(value))}
                 >
                   <SelectTrigger>
-                    <SelectValue>
-                      {getCategoryNameById(form.watch("categoryId"))}
-                    </SelectValue>
+                    <SelectValue placeholder="Sélectionner une catégorie" />
                   </SelectTrigger>
                   <SelectContent>
                     {isLoadingCategories ? (
@@ -434,7 +432,7 @@ export function ProductForm({ product, onSuccess }: ProductFormProps) {
                     <Label htmlFor="imageUrl" className="text-sm text-gray-600">Ou URL d'image</Label>
                     <Input
                       id="imageUrl"
-                      value={form.watch("imageUrl") || ""}
+                      {...form.register("imageUrl")}
                       onChange={(e) => handleUrlChange(e.target.value)}
                       placeholder="https://exemple.com/image.jpg"
                       className="text-sm"
@@ -452,7 +450,7 @@ export function ProductForm({ product, onSuccess }: ProductFormProps) {
               <div className="flex items-center space-x-2">
                 <Switch
                   id="available"
-                  checked={form.watch("available")}
+                  defaultChecked={product?.available ?? true}
                   onCheckedChange={(checked) => form.setValue("available", checked)}
                 />
                 <Label htmlFor="available">Disponible</Label>

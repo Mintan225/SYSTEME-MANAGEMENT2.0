@@ -86,8 +86,9 @@ function UserForm({ user, onSuccess }: UserFormProps) {
     },
   });
 
-  const selectedRole = form.watch("role");
-  const selectedPermissions = form.watch("permissions");
+  // Use state instead of form.watch to prevent infinite re-renders
+  const [selectedRole, setSelectedRole] = useState<UserRole>(user?.role || "employee");
+  const [selectedPermissions, setSelectedPermissions] = useState<string[]>(user?.permissions || []);
 
   const createMutation = useMutation({
     mutationFn: async (data: UserFormData) => {
@@ -304,17 +305,17 @@ function UserForm({ user, onSuccess }: UserFormProps) {
                 <Select
                   value={selectedRole}
                   onValueChange={(value) => {
+                    setSelectedRole(value as UserRole);
                     form.setValue("role", value as UserRole);
                     if (!customPermissions) {
-                      form.setValue("permissions", DEFAULT_PERMISSIONS[value as UserRole]);
+                      const newPermissions = DEFAULT_PERMISSIONS[value as UserRole];
+                      setSelectedPermissions(newPermissions);
+                      form.setValue("permissions", newPermissions);
                     }
                   }}
                 >
                   <SelectTrigger>
-                    {/* MODIFICATION ICI : Contenu explicite pour SelectValue */}
-                    <SelectValue>
-                      {getRoleName(selectedRole)}
-                    </SelectValue>
+                    <SelectValue placeholder="Sélectionner un rôle" />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="employee">Employé</SelectItem>
@@ -530,9 +531,7 @@ function UsersPage() {
             </div>
             <Select value={filterRole} onValueChange={setFilterRole}>
               <SelectTrigger className="w-48">
-                <SelectValue>
-                  {getRoleDisplayName(filterRole as UserRole)}
-                </SelectValue>
+                <SelectValue placeholder="Tous les rôles" />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">Tous les rôles</SelectItem>
