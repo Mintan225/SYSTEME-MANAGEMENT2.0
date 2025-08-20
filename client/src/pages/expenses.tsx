@@ -7,6 +7,7 @@ import authService from "@/lib/auth";
 import { useToast } from "@/hooks/use-toast";
 import { formatCurrency } from "@/lib/currency";
 import { z } from "zod";
+import { createPortal } from "react-dom";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -21,13 +22,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Plus, Edit, Trash2, Receipt, Calendar, Download, TrendingDown } from "lucide-react";
 
@@ -81,21 +75,45 @@ function ExpenseForm({ expense, onSuccess }: ExpenseFormProps) {
 
   const createMutation = useMutation({
     mutationFn: async (data: any) => {
-      const response = await fetch("/api/expenses", {
-        method: "POST",
-        headers: authService.getAuthHeaders(),
-        body: JSON.stringify({
-          ...data,
+      try {
+        // Vérifier l'authentification avant d'envoyer la requête
+        if (!authService.isAuthenticated()) {
+          throw new Error("Vous devez être connecté pour effectuer cette action");
+        }
+
+        const headers = authService.getAuthHeaders();
+        const payload = {
+          description: data.description,
           amount: parseFloat(data.amount),
-        }),
-      });
+          category: data.category,
+          receiptUrl: data.receiptUrl || null,
+        };
 
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.message || "Failed to create expense");
+        console.log("Sending expense data:", payload);
+        console.log("Using headers:", headers);
+
+        const response = await fetch("/api/expenses", {
+          method: "POST",
+          headers,
+          body: JSON.stringify(payload),
+        });
+
+        if (!response.ok) {
+          let errorMessage = "Erreur lors de la création de la dépense";
+          try {
+            const errorData = await response.json();
+            errorMessage = errorData.message || errorMessage;
+          } catch (e) {
+            console.error("Error parsing error response:", e);
+          }
+          throw new Error(errorMessage);
+        }
+
+        return response.json();
+      } catch (error) {
+        console.error("Create expense error:", error);
+        throw error;
       }
-
-      return response.json();
     },
     onSuccess: () => {
       toast({
@@ -120,21 +138,41 @@ function ExpenseForm({ expense, onSuccess }: ExpenseFormProps) {
 
   const updateMutation = useMutation({
     mutationFn: async (data: any) => {
-      const response = await fetch(`/api/expenses/${expense.id}`, {
-        method: "PUT",
-        headers: authService.getAuthHeaders(),
-        body: JSON.stringify({
-          ...data,
+      try {
+        if (!authService.isAuthenticated()) {
+          throw new Error("Vous devez être connecté pour effectuer cette action");
+        }
+
+        const headers = authService.getAuthHeaders();
+        const payload = {
+          description: data.description,
           amount: parseFloat(data.amount),
-        }),
-      });
+          category: data.category,
+          receiptUrl: data.receiptUrl || null,
+        };
 
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.message || "Failed to update expense");
+        const response = await fetch(`/api/expenses/${expense.id}`, {
+          method: "PUT",
+          headers,
+          body: JSON.stringify(payload),
+        });
+
+        if (!response.ok) {
+          let errorMessage = "Erreur lors de la modification de la dépense";
+          try {
+            const errorData = await response.json();
+            errorMessage = errorData.message || errorMessage;
+          } catch (e) {
+            console.error("Error parsing error response:", e);
+          }
+          throw new Error(errorMessage);
+        }
+
+        return response.json();
+      } catch (error) {
+        console.error("Update expense error:", error);
+        throw error;
       }
-
-      return response.json();
     },
     onSuccess: () => {
       toast({
@@ -167,24 +205,25 @@ function ExpenseForm({ expense, onSuccess }: ExpenseFormProps) {
   const isLoading = createMutation.isPending || updateMutation.isPending;
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
-        {expense ? (
-          <Button size="sm" variant="outline">
-            <Edit className="h-4 w-4" />
-          </Button>
-        ) : (
-          <Button>
-            <Plus className="h-4 w-4 mr-2" />
-            Ajouter une dépense
-          </Button>
-        )}
-      </DialogTrigger>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>{expense ? "Modifier la dépense" : "Ajouter une dépense"}</DialogTitle>
-        </DialogHeader>
-        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+    <>
+      {expense ? (
+        <Button size="sm" variant="outline" onClick={() => setOpen(true)}>
+          <Edit className="h-4 w-4" />
+        </Button>
+      ) : (
+        <Button onClick={() => setOpen(true)}>
+          <Plus className="h-4 w-4 mr-2" />
+          Ajouter une dépense
+        </Button>
+      )}
+      
+      {open && createPortal(
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white p-6 rounded-lg shadow-xl max-w-md w-full mx-4">
+            <h2 className="text-xl font-bold mb-4">
+              {expense ? "Modifier la dépense" : "Ajouter une dépense"}
+            </h2>
+            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
                   <div className="space-y-2">
                     <Label htmlFor="description">Description</Label>
                     <Textarea
@@ -260,10 +299,24 @@ function ExpenseForm({ expense, onSuccess }: ExpenseFormProps) {
             <Button type="submit" disabled={isLoading}>
               {isLoading ? "Enregistrement..." : expense ? "Modifier" : "Ajouter"}
             </Button>
+          <div className="flex justify-end space-x-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setOpen(false)}
+                >
+                  Annuler
+                </Button>
+                <Button type="submit" disabled={isLoading}>
+                  {isLoading ? "Enregistrement..." : expense ? "Modifier" : "Ajouter"}
+                </Button>
+              </div>
+            </form>
           </div>
-        </form>
-      </DialogContent>
-    </Dialog>
+        </div>,
+        document.body
+      )}
+    </>
   );
 }
 
@@ -307,7 +360,33 @@ export default function Expenses() {
 
   const { data: expenses = [], isLoading } = useQuery({
     queryKey: ["/api/expenses", { startDate: start, endDate: end }],
-    enabled: !!start && !!end,
+    queryFn: async () => {
+      try {
+        if (!authService.isAuthenticated()) {
+          throw new Error("Vous devez être connecté");
+        }
+
+        const headers = authService.getAuthHeaders();
+        let url = "/api/expenses";
+        
+        if (start && end) {
+          url += `?startDate=${encodeURIComponent(start)}&endDate=${encodeURIComponent(end)}`;
+        }
+
+        const response = await fetch(url, { headers });
+
+        if (!response.ok) {
+          throw new Error("Erreur lors du chargement des dépenses");
+        }
+
+        const data = await response.json();
+        return Array.isArray(data) ? data : [];
+      } catch (error) {
+        console.error("Error fetching expenses:", error);
+        throw error;
+      }
+    },
+    enabled: !!start && !!end && authService.isAuthenticated(),
   });
 
   const deleteMutation = useMutation({

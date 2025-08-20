@@ -2,6 +2,7 @@ interface User {
   id: number;
   username: string;
   role: string;
+  permissions?: string[]; // Added permissions to the User interface
 }
 
 interface AuthResponse {
@@ -23,7 +24,7 @@ class AuthService {
       try {
         const token = localStorage.getItem('auth_token');
         const userData = localStorage.getItem('auth_user');
-        
+
         if (token && userData) {
           this.token = token;
           this.user = JSON.parse(userData);
@@ -68,9 +69,9 @@ class AuthService {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ 
-          username: username.trim(), 
-          password: password 
+        body: JSON.stringify({
+          username: username.trim(),
+          password: password
         }),
       });
 
@@ -82,27 +83,27 @@ class AuthService {
         } catch (parseError) {
           console.error('Error parsing error response:', parseError);
         }
-        
+
         // Dispatch custom error event for auth guard
         if (typeof window !== 'undefined') {
           window.dispatchEvent(new CustomEvent('apiError', {
             detail: { status: response.status, message: errorMessage }
           }));
         }
-        
+
         throw new Error(errorMessage);
       }
 
       const data: AuthResponse = await response.json();
-      
+
       if (!data.token || !data.user) {
         throw new Error('Réponse d\'authentification invalide');
       }
-      
+
       this.token = data.token;
       this.user = data.user;
       this.saveToStorage(data.token, data.user);
-      
+
       return data;
     } catch (error) {
       console.error('Login error:', error);
@@ -128,7 +129,7 @@ class AuthService {
     this.token = data.token;
     this.user = data.user;
     this.saveToStorage(data.token, data.user);
-    
+
     return data;
   }
 
@@ -136,12 +137,12 @@ class AuthService {
     if (this.isLoggingOut) {
       return; // Prevent multiple simultaneous logouts
     }
-    
+
     this.isLoggingOut = true;
     this.token = null;
     this.user = null;
     this.clearStorage();
-    
+
     // Use setTimeout to prevent state update issues
     if (typeof window !== 'undefined') {
       setTimeout(() => {
@@ -164,13 +165,18 @@ class AuthService {
   }
 
   getAuthHeaders(): Record<string, string> {
-    const headers: Record<string, string> = {};
-
-    if (this.token) {
-      headers['Authorization'] = `Bearer ${this.token}`;
+    const token = this.getToken();
+    if (!token) {
+      // If no token, return headers without Authorization
+      return {
+        'Content-Type': 'application/json',
+      };
     }
 
-    return headers;
+    return {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${token}`,
+    };
   }
 
   getAuthHeadersWithJson(): Record<string, string> {
@@ -183,6 +189,47 @@ class AuthService {
     }
 
     return headers;
+  }
+
+  // Method to check and refresh token if necessary
+  async validateToken(): Promise<boolean> {
+    const token = this.getToken();
+    if (!token) return false;
+
+    try {
+      const response = await fetch('/api/auth/validate', {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+
+      if (!response.ok) {
+        this.logout();
+        return false;
+      }
+
+      // Optionally, update user data if the API returns refreshed user info
+      // const data = await response.json();
+      // if (data.user) {
+      //   this.user = data.user;
+      //   this.saveToStorage(token, data.user);
+      // }
+
+      return true;
+    } catch (error) {
+      console.error('Token validation error:', error);
+      this.logout();
+      return false;
+    }
+  }
+
+  // Placeholder for hasPermission, assuming user.permissions is an array of strings
+  hasPermission(permission: string): boolean {
+    if (!this.user || !this.user.permissions) {
+      return false;
+    }
+    return this.user.permissions.includes(permission);
   }
 }
 
