@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef, useCallback } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Bell, CheckCircle, Clock, ChefHat, Package, X } from "lucide-react";
@@ -144,6 +144,14 @@ export function useOrderNotifications(tableId?: number, customerName?: string, c
   const [notifications, setNotifications] = useState<any[]>([]);
   const [lastOrderStatuses, setLastOrderStatuses] = useState<Record<number, string>>({});
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
+  const isMountedRef = useRef(true);
+
+  // Cleanup effect pour marquer le composant comme démonté
+  useEffect(() => {
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, []);
 
   useEffect(() => {
     if (!tableId || tableId === 0) return;
@@ -196,21 +204,23 @@ export function useOrderNotifications(tableId?: number, customerName?: string, c
               notificationId
             });
             
-            setNotifications(prev => {
-              // Éviter les doublons et limiter le nombre de notifications
-              const exists = prev.some(n => n.notificationId === notificationId);
-              if (!exists) {
-                const newNotifications = [...prev, { 
-                  ...order, 
-                  notificationId,
-                  timestamp: Date.now(),
-                  isStatusChange: true 
-                }];
-                // Limiter à 3 notifications maximum pour éviter l'encombrement
-                return newNotifications.slice(-3);
-              }
-              return prev;
-            });
+            if (isMountedRef.current) {
+              setNotifications(prev => {
+                // Éviter les doublons et limiter le nombre de notifications
+                const exists = prev.some(n => n.notificationId === notificationId);
+                if (!exists) {
+                  const newNotifications = [...prev, { 
+                    ...order, 
+                    notificationId,
+                    timestamp: Date.now(),
+                    isStatusChange: true 
+                  }];
+                  // Limiter à 3 notifications maximum pour éviter l'encombrement
+                  return newNotifications.slice(-3);
+                }
+                return prev;
+              });
+            }
           }
         });
         

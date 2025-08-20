@@ -142,17 +142,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
         (req, res) => {
             try {
                 if (!req.file) {
-                    return res.status(400).json({ message: "No image file provided" });
+                    return res.status(400).json({ message: "Aucun fichier image fourni" });
                 }
                 const base64Image = `data:${req.file.mimetype};base64,${req.file.buffer.toString('base64')}`;
                 res.json({
-                    message: "Image uploaded successfully",
+                    message: "Image téléchargée avec succès",
                     imageData: base64Image
                 });
             } catch (error) {
-                console.error("Error uploading image:", error);
+                console.error("Erreur lors du téléchargement de l'image:", error);
                 res.status(500).json({
-                    message: "Failed to upload image",
+                    message: "Échec du téléchargement de l'image",
                     error: error instanceof Error ? error.message : String(error)
                 });
             }
@@ -163,20 +163,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
         try {
             const { imageUrl } = req.body;
             if (!imageUrl) {
-                return res.status(400).json({ message: "Image URL is required" });
+                return res.status(400).json({ message: "L'URL de l'image est requise" });
             }
             const filename = path.basename(imageUrl);
             const filepath = path.join(process.cwd(), '..', 'public', 'uploads', 'products', filename);
             if (fs.existsSync(filepath)) {
                 fs.unlinkSync(filepath);
-                res.json({ message: "Image deleted successfully" });
+                res.json({ message: "Image supprimée avec succès" });
             } else {
-                res.status(404).json({ message: "Image file not found" });
+                res.status(404).json({ message: "Fichier image non trouvé" });
             }
         } catch (error) {
-            console.error("Error deleting image:", error);
+            console.error("Erreur lors de la suppression de l'image:", error);
             res.status(500).json({
-                message: "Failed to delete image",
+                message: "Échec de la suppression de l'image",
                 error: error instanceof Error ? error.message : String(error)
             });
         }
@@ -188,7 +188,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             const users = await storage.getUsers();
             res.json(users);
         } catch (error) {
-            res.status(500).json({ message: "Failed to fetch users" });
+            res.status(500).json({ message: "Échec de la récupération des utilisateurs" });
         }
     });
 
@@ -309,10 +309,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
             console.log(`[LOGIN_DEBUG] Request body received:`, req.body);
             const user = await storage.getUserByUsername(username);
             if (!user) {
-                console.log(`[LOGIN_DEBUG] Failure: User "${username}" not found in database.`);
-                return res.status(401).json({ message: "Invalid credentials" });
+                console.log(`[LOGIN_DEBUG] Échec: Utilisateur "${username}" non trouvé dans la base de données.`);
+                return res.status(401).json({ message: "Identifiants invalides" });
             }
-            console.log(`[LOGIN_DEBUG] Success: User "${username}" found in database. User ID: ${user.id}, Role: ${user.role}`);
+            console.log(`[LOGIN_DEBUG] Succès: Utilisateur "${username}" trouvé dans la base de données. ID: ${user.id}, Rôle: ${user.role}`);
             
             const isValidPassword = await bcrypt.compare(password, user.password); 
             if (!isValidPassword) {
@@ -808,18 +808,88 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
     app.post("/api/sales", authenticateToken, authorizePermission(["sales.create"]), async (req, res) => {
         try {
-            const saleData = insertSaleSchema.parse(req.body);
-            const sale = await storage.createSale(saleData);
-            res.json(sale);
-        } catch (error) {
-            console.error("Error creating manual sale:", error);
-            if (error instanceof ZodError) {
+            console.log("[SALE_CREATE_DEBUG] Request body received:", JSON.stringify(req.body));
+            
+            // Check for required fields first
+            if (!req.body.amount || !req.body.paymentMethod) {
+                console.log("[SALE_CREATE_DEBUG] Missing required fields:", {
+                    amount: req.body.amount,
+                    paymentMethod: req.body.paymentMethod
+                });
                 return res.status(400).json({
                     message: "Données de vente invalides.",
-                    errors: error.issues
+                    details: "Le montant et la méthode de paiement sont requis",
+                    received: req.body
                 });
             }
-            res.status(500).json({ message: "Failed to create manual sale", error: error instanceof Error ? error.message : String(error) });
+
+            // Validate amount can be converted to number
+            const parsedAmount = typeof req.body.amount === 'number' ? req.body.amount : parseFloat(req.body.amount);
+            if (isNaN(parsedAmount) || parsedAmount <= 0) {
+                console.log("[SALE_CREATE_DEBUG] Invalid amount:", {
+                    original: req.body.amount,
+                    parsed: parsedAmount
+                });
+                return res.status(400).json({
+                    message: "Données de vente invalides.",
+                    details: "Le montant doit être un nombre positif"
+                });
+            }
+            
+            // Prepare data for validation
+            const saleData = {
+                amount: parsedAmount.toString(), // Convert to string as expected by schema
+                paymentMethod: String(req.body.paymentMethod).trim(),
+                description: req.body.description ? String(req.body.description).trim() : undefined,
+                orderId: req.body.orderId ? Number(req.body.orderId) : undefined
+            };
+            
+            console.log("[SALE_CREATE_DEBUG] Data to validate:", JSON.stringify(saleData));
+            
+            // Use safeParse for better error handling
+            const parsedData = insertSaleSchema.safeParse(saleData);
+            if (!parsedData.success) {
+                console.log("[SALE_CREATE_DEBUG] Schema validation failed:", parsedData.error.issues);
+                return res.status(400).json({
+                    message: "Données de vente invalides.",
+                    errors: parsedData.error.issues,
+                    details: "Veuillez vérifier le format des données"
+                });
+            }
+            
+            console.log("[SALE_CREATE_DEBUG] Schema validation passed:", JSON.stringify(parsedData.data));
+            
+            // Create sale with validated data
+            const sale = await storage.createSale(parsedData.data);
+            console.log("[SALE_CREATE_DEBUG] Sale created successfully:", sale);
+            
+            res.json(sale);
+        } catch (error) {
+            console.error("[SALE_CREATE_DEBUG] Error creating sale:", error);
+            
+            // Handle specific error types
+            if (error instanceof Error) {
+                // Check for database constraint errors
+                if (error.message.includes('constraint') || error.message.includes('violates')) {
+                    return res.status(400).json({
+                        message: "Erreur de contrainte de base de données",
+                        error: error.message
+                    });
+                }
+                
+                // Check for connection errors
+                if (error.message.includes('connection') || error.message.includes('connect')) {
+                    return res.status(503).json({
+                        message: "Erreur de connexion à la base de données",
+                        error: "Impossible de se connecter à la base de données"
+                    });
+                }
+            }
+            
+            res.status(500).json({
+                message: "Échec de la création de la vente",
+                error: error instanceof Error ? error.message : String(error)
+            });
         }
     });
 

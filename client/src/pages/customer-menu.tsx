@@ -265,9 +265,9 @@ export default function CustomerMenu() {
         />
       ))}
       
-      {/* Utilisation de l'opérateur ternaire pour basculer entre le panier et le menu */}
-      {showCart ? (
-        // --- CONTENU DU PANIER ---
+      {/* Affichage conditionnel avec des divs distinctes pour éviter les problèmes de réconciliation */}
+      <div className={cn("transition-all duration-300", showCart ? "block" : "hidden")}>
+        {/* CONTENU DU PANIER */}
         <div className="min-h-screen bg-gray-50">
           {/* Header du panier */}
           <div className="bg-white shadow-sm border-b">
@@ -479,8 +479,10 @@ export default function CustomerMenu() {
             </button>
           </div>
         </div>
-      ) : (
-        // --- CONTENU DU MENU PRINCIPAL ---
+      </div>
+      
+      <div className={cn("transition-all duration-300", !showCart ? "block" : "hidden")}>
+        {/* CONTENU DU MENU PRINCIPAL */}
         <div className="min-h-screen bg-gray-50">
           {/* Header du menu */}
           <div className="bg-white shadow-sm border-b sticky top-0 z-10">
@@ -662,7 +664,7 @@ export default function CustomerMenu() {
             </div>
           )}
         </div>
-      )}
+      </div>
     </div>
   );
 }

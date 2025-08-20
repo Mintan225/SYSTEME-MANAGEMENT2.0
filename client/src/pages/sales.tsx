@@ -1,4 +1,43 @@
-import { useState } from "react";
+const onSubmit = (data: SaleFormData) => {
+    createMutation.mutate(data);
+};
+
+// Ajouter cette fonction
+const handleClose = () => {
+    setOpen(false);
+    form.reset(); // Réinitialiser le formulaire lors de la fermeture
+};
+
+return (
+    <>
+        <Button onClick={() => setOpen(true)}>
+            <Plus className="h-4 w-4 mr-2" />
+            Ajouter une vente
+        </Button>
+        {open && (
+            <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+                <div className="bg-white p-6 rounded-lg shadow-xl max-w-sm w-full">
+                    {/* ... reste du code ... */}
+                    <div className="flex gap-2 pt-4">
+                        <Button
+                            type="button"
+                            variant="outline"
+                            onClick={handleClose} // Utiliser handleClose au lieu de setOpen(false)
+                            className="flex-1"
+                        >
+                            Annuler
+                        </Button>
+                        {/* ... reste du code ... */}
+                    </div>
+                </div>
+            </div>
+        )}
+    </>
+);const handleDeleteSale = async (saleId: number) => {
+    if (window.confirm("Êtes-vous sûr de vouloir supprimer cette vente ?")) {
+        deleteSaleMutation.mutate(saleId);
+    }
+};import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";

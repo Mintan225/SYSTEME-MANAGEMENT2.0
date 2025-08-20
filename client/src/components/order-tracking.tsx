@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -15,6 +15,14 @@ interface OrderTrackingProps {
 
 export function OrderTracking({ tableId, customerName, customerPhone, onClose }: OrderTrackingProps) {
   const [autoRefresh, setAutoRefresh] = useState(true);
+  const isMountedRef = useRef(true);
+
+  // Cleanup effect pour marquer le composant comme démonté
+  useEffect(() => {
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, []);
 
   const { data: menuData, isLoading, refetch } = useQuery({
     queryKey: [`/api/menu/${tableId}`],
