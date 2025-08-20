@@ -225,10 +225,7 @@ function ExpenseForm({ expense, onSuccess }: ExpenseFormProps) {
                       onValueChange={(value) => form.setValue("category", value)}
                     >
                       <SelectTrigger>
-                        {/* MODIFICATION ICI : Contenu explicite pour SelectValue */}
-                        <SelectValue>
-                          {form.watch("category") || "Sélectionner une catégorie"}
-                        </SelectValue>
+                        <SelectValue placeholder="Sélectionner une catégorie" />
                       </SelectTrigger>
                       <SelectContent>
                         {expenseCategories.map((category) => (
