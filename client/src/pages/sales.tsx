@@ -21,6 +21,7 @@ import authService from "@/lib/auth";
 import { useToast } from "@/hooks/use-toast";
 import { format, startOfDay, endOfDay, startOfWeek, endOfWeek, startOfMonth, endOfMonth } from "date-fns";
 import { fr } from "date-fns/locale";
+import { createPortal } from 'react-dom';
 
 const saleFormSchema = z.object({
   amount: z.string().min(1, "Le montant est requis"),
@@ -98,7 +99,7 @@ function SaleForm({ onSuccess }: { onSuccess?: () => void }) {
         <Plus className="h-4 w-4 mr-2" />
         Ajouter une vente
       </Button>
-      {open && (
+      {open && createPortal(
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white p-6 rounded-lg shadow-xl max-w-sm w-full">
             <h2 className="text-xl font-bold mb-4">Ajouter une vente</h2>
@@ -170,7 +171,8 @@ function SaleForm({ onSuccess }: { onSuccess?: () => void }) {
               </div>
             </form>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </>
   );
