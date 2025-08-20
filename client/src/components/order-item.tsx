@@ -52,48 +52,49 @@ const paymentStatusConfig = {
 };
 
 export function OrderItem({ order }: OrderItemProps) {
-  const { toast } = useToast();
   const queryClient = useQueryClient();
-
-  // Récupérer les tables pour trouver le numéro de table correspondant à l'ID
-  const { data: tables = [] } = useQuery({
-    queryKey: ["/api/tables"],
-    staleTime: 5 * 60 * 1000, // Cache 5 minutes
-  });
-
-  const tableNumber = tables.find((table: any) => table.id === order.tableId)?.number || order.tableId;
+  const { toast } = useToast();
 
   const updateOrderMutation = useMutation({
-    mutationFn: async ({ status }: { status: string }) => {
-      const response = await fetch(`/api/orders/${order.id}`, {
+    mutationFn: async ({ orderId, updates }: { orderId: number; updates: any }) => {
+      console.log("Updating order:", orderId, "with:", updates);
+
+      const response = await fetch(`/api/orders/${orderId}`, {
         method: "PUT",
-        headers: authService.getAuthHeaders(),
-        body: JSON.stringify({ status }),
+        headers: {
+          "Content-Type": "application/json",
+          ...authService.getAuthHeaders(),
+        },
+        body: JSON.stringify(updates),
       });
 
       if (!response.ok) {
-        const error = await response.json();
+        const errorText = await response.text();
+        console.error("Update failed:", response.status, errorText);
+
+        let error;
+        try {
+          error = JSON.parse(errorText);
+        } catch {
+          error = { message: `HTTP ${response.status}: ${errorText}` };
+        }
         throw new Error(error.message || "Failed to update order");
       }
 
       return response.json();
     },
-    onSuccess: () => {
-      toast({
-        title: "Succès",
-        description: "Commande mise à jour",
-      });
-      // Invalider toutes les requêtes liées aux commandes
+    onSuccess: (data) => {
+      console.log("Order updated successfully:", data);
       queryClient.invalidateQueries({ queryKey: ["/api/orders"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/analytics/daily"] });
-      // Invalider aussi les endpoints de menu utilisés par le suivi client
-      queryClient.invalidateQueries({ 
-        predicate: (query) => {
-          return query.queryKey[0]?.toString().startsWith('/api/menu/');
-        }
+      queryClient.invalidateQueries({ queryKey: ["/api/orders", { active: true }] });
+
+      toast({
+        title: "Commande mise à jour",
+        description: "Le statut de la commande a été modifié avec succès.",
       });
     },
     onError: (error: Error) => {
+      console.error("Order update error:", error);
       toast({
         title: "Erreur",
         description: error.message,
@@ -103,11 +104,49 @@ export function OrderItem({ order }: OrderItemProps) {
   });
 
   const handleStatusChange = (newStatus: string) => {
-    updateOrderMutation.mutate({ status: newStatus });
+    if (!newStatus || newStatus === order.status) return;
+
+    const updates: any = { status: newStatus };
+
+    // Auto-completion logic
+    if (newStatus === 'completed') {
+      updates.paymentStatus = 'paid';
+      updates.completedAt = new Date().toISOString();
+    }
+
+    updateOrderMutation.mutate({
+      orderId: order.id,
+      updates,
+    });
+  };
+
+  const handlePaymentStatusChange = (newPaymentStatus: string) => {
+    if (!newPaymentStatus || newPaymentStatus === order.paymentStatus) return;
+
+    updateOrderMutation.mutate({
+      orderId: order.id,
+      updates: { paymentStatus: newPaymentStatus },
+    });
+  };
+
+  // Récupérer les tables pour trouver le numéro de table correspondant à l'ID
+  const { data: tables = [] } = useQuery({
+    queryKey: ["/api/tables"],
+    staleTime: 5 * 60 * 1000, // Cache 5 minutes
+  });
+
+  const tableNumber = tables.find((table: any) => table.id === order.tableId)?.number || order.tableId;
+
+  const safeOrder = {
+    ...order,
+    status: order.status || 'pending',
+    paymentStatus: order.paymentStatus || 'pending',
+    customerName: order.customerName || 'Client',
+    orderItems: order.orderItems || []
   };
 
   const handleDownloadReceipt = () => {
-    if (!order.orderItems || order.orderItems.length === 0) {
+    if (!safeOrder.orderItems || safeOrder.orderItems.length === 0) {
       toast({
         title: "Erreur",
         description: "Impossible de générer le reçu : aucun produit commandé",
@@ -117,19 +156,19 @@ export function OrderItem({ order }: OrderItemProps) {
     }
 
     const receiptData: ReceiptData = {
-      orderId: order.id,
-      customerName: order.customerName || 'Client',
-      customerPhone: order.customerPhone,
+      orderId: safeOrder.id,
+      customerName: safeOrder.customerName || 'Client',
+      customerPhone: safeOrder.customerPhone,
       tableNumber: tableNumber,
-      items: order.orderItems.map(item => ({
+      items: safeOrder.orderItems.map(item => ({
         name: item.product.name,
         quantity: item.quantity,
         price: parseFloat(item.price),
         total: parseFloat(item.price) * item.quantity
       })),
-      subtotal: parseFloat(order.total),
-      total: parseFloat(order.total),
-      paymentMethod: order.paymentMethod || 'Espèces',
+      subtotal: parseFloat(safeOrder.total),
+      total: parseFloat(safeOrder.total),
+      paymentMethod: safeOrder.paymentMethod || 'Espèces',
       paymentDate: format(new Date(), "dd/MM/yyyy HH:mm", { locale: fr }),
       restaurantName: 'Mon Restaurant',
       restaurantAddress: 'Adresse du restaurant',
@@ -151,26 +190,28 @@ export function OrderItem({ order }: OrderItemProps) {
     }
   };
 
-  const statusInfo = statusConfig[order.status as keyof typeof statusConfig];
-  const paymentInfo = paymentStatusConfig[order.paymentStatus as keyof typeof paymentStatusConfig];
+  const statusInfo = statusConfig[safeOrder.status as keyof typeof statusConfig];
+  const paymentInfo = paymentStatusConfig[safeOrder.paymentStatus as keyof typeof paymentStatusConfig];
 
   return (
-    <Card className="mb-4">
-      <CardContent className="p-4">
-        <div className="flex items-center justify-between mb-3">
-          <div className="flex items-center space-x-2">
-            <h3 className="font-semibold">Commande #{order.id}</h3>
-            <Badge className={`${statusInfo.color} text-white`}>
-              {statusInfo.label}
-            </Badge>
-            <Badge className={`${paymentInfo.color} text-white`}>
-              {paymentInfo.label}
-            </Badge>
+    <Card className="hover:shadow-md transition-shadow">
+      <CardContent className="p-6">
+        <div className="flex items-start justify-between mb-4">
+          <div className="flex-1">
+            <div className="flex items-center space-x-3 mb-2">
+              <h3 className="text-lg font-semibold">Commande #{safeOrder.id}</h3>
+              <Badge className={`${statusConfig[safeOrder.status as keyof typeof statusConfig]?.color || 'bg-gray-500'} text-white`}>
+                {statusConfig[safeOrder.status as keyof typeof statusConfig]?.label || safeOrder.status}
+              </Badge>
+              <Badge variant={safeOrder.paymentStatus === 'paid' ? 'default' : 'secondary'}>
+                {paymentStatusConfig[safeOrder.paymentStatus as keyof typeof paymentStatusConfig]?.label || safeOrder.paymentStatus}
+              </Badge>
+            </div>
           </div>
           <div className="text-right">
-            <p className="font-semibold">{formatCurrency(order.total)}</p>
+            <p className="font-semibold">{formatCurrency(safeOrder.total)}</p>
             <p className="text-sm text-gray-500">
-              {format(new Date(order.createdAt), "HH:mm", { locale: fr })}
+              {format(new Date(safeOrder.createdAt), "HH:mm", { locale: fr })}
             </p>
           </div>
         </div>
@@ -180,37 +221,37 @@ export function OrderItem({ order }: OrderItemProps) {
             <p className="text-sm text-gray-600">
               <strong>Table:</strong> {tableNumber}
             </p>
-            {order.customerName && (
+            {safeOrder.customerName && (
               <p className="text-sm text-gray-600">
-                <strong>Client:</strong> {order.customerName}
+                <strong>Client:</strong> {safeOrder.customerName}
               </p>
             )}
-            {order.customerPhone && (
+            {safeOrder.customerPhone && (
               <p className="text-sm text-gray-600">
-                <strong>Téléphone:</strong> {order.customerPhone}
+                <strong>Téléphone:</strong> {safeOrder.customerPhone}
               </p>
             )}
           </div>
           <div>
-            {order.paymentMethod && (
+            {safeOrder.paymentMethod && (
               <p className="text-sm text-gray-600">
-                <strong>Paiement:</strong> {order.paymentMethod}
+                <strong>Paiement:</strong> {safeOrder.paymentMethod}
               </p>
             )}
-            {order.notes && (
+            {safeOrder.notes && (
               <p className="text-sm text-gray-600">
-                <strong>Notes:</strong> {order.notes}
+                <strong>Notes:</strong> {safeOrder.notes}
               </p>
             )}
           </div>
         </div>
 
         {/* Produits commandés */}
-        {order.orderItems && order.orderItems.length > 0 && (
+        {safeOrder.orderItems && safeOrder.orderItems.length > 0 && (
           <div className="mb-4">
             <h4 className="font-medium text-sm text-gray-700 mb-2">Produits commandés :</h4>
             <div className="space-y-2">
-              {order.orderItems.map((item) => (
+              {safeOrder.orderItems.map((item) => (
                 <div key={item.id} className="flex justify-between items-center p-2 bg-gray-50 rounded">
                   <div className="flex-1">
                     <span className="font-medium">{item.product.name}</span>
@@ -229,9 +270,9 @@ export function OrderItem({ order }: OrderItemProps) {
         )}
 
         <div className="flex flex-wrap gap-2 items-center justify-between">
-          {order.status !== "completed" && order.status !== "cancelled" && (
+          {safeOrder.status !== "completed" && safeOrder.status !== "cancelled" && (
             <div className="flex space-x-2">
-              {order.status === "pending" && (
+              {safeOrder.status === "pending" && (
                 <Button
                   size="sm"
                   onClick={() => handleStatusChange("preparing")}
@@ -240,7 +281,7 @@ export function OrderItem({ order }: OrderItemProps) {
                   Commencer préparation
                 </Button>
               )}
-              {order.status === "preparing" && (
+              {safeOrder.status === "preparing" && (
                 <Button
                   size="sm"
                   onClick={() => handleStatusChange("ready")}
@@ -249,7 +290,7 @@ export function OrderItem({ order }: OrderItemProps) {
                   Marquer comme prêt
                 </Button>
               )}
-              {order.status === "ready" && (
+              {safeOrder.status === "ready" && (
                 <Button
                   size="sm"
                   onClick={() => handleStatusChange("completed")}
@@ -270,7 +311,7 @@ export function OrderItem({ order }: OrderItemProps) {
           )}
 
           {/* Bouton de téléchargement du reçu - disponible pour toutes les commandes payées */}
-          {order.paymentStatus === "paid" && (
+          {safeOrder.paymentStatus === "paid" && (
             <Button
               size="sm"
               variant="outline"

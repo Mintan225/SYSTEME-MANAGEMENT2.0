@@ -167,15 +167,14 @@ class AuthService {
   getAuthHeaders(): Record<string, string> {
     const token = this.getToken();
     if (!token) {
-      // If no token, return headers without Authorization
-      return {
-        'Content-Type': 'application/json',
-      };
+      console.warn('No authentication token found, redirecting to login');
+      window.location.href = '/login';
+      throw new Error('No authentication token found');
     }
 
     return {
-      'Content-Type': 'application/json',
       'Authorization': `Bearer ${token}`,
+      'Content-Type': 'application/json',
     };
   }
 
