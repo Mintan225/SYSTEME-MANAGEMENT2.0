@@ -578,14 +578,42 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.put("/api/orders/:id", authenticateToken, authorizePermission(["orders.edit", "orders.update_status"]), async (req, res) => {
     try {
-      if (Object.keys(req.body).length === 0) {
+      console.log(`[ORDER_UPDATE_DEBUG] Updating order ${req.params.id} with data:`, req.body);
+      
+      if (!req.body || Object.keys(req.body).length === 0) {
         return res.status(400).json({ message: "Aucune donnée de mise à jour fournie." });
       }
-      const orderData = insertOrderSchema.partial().parse(req.body);
+
+      // Validation plus flexible - on accepte les champs individuels
+      let orderData: any = {};
+      
+      // Validation manuelle des champs autorisés
+      const allowedFields = ['status', 'paymentStatus', 'paymentMethod', 'total', 'notes', 'customerName', 'customerPhone'];
+      
+      for (const field of allowedFields) {
+        if (req.body[field] !== undefined) {
+          orderData[field] = req.body[field];
+        }
+      }
+
+      // Validation du statut si présent
+      if (orderData.status && !['pending', 'preparing', 'ready', 'completed', 'cancelled'].includes(orderData.status)) {
+        return res.status(400).json({ message: "Statut de commande invalide." });
+      }
+
+      // Validation du statut de paiement si présent
+      if (orderData.paymentStatus && !['pending', 'paid', 'failed'].includes(orderData.paymentStatus)) {
+        return res.status(400).json({ message: "Statut de paiement invalide." });
+      }
+
+      // Logique automatique pour les commandes terminées
       if (orderData.status === 'completed') {
         orderData.paymentStatus = 'paid';
         orderData.completedAt = new Date();
       }
+
+      console.log(`[ORDER_UPDATE_DEBUG] Validated order data:`, orderData);
+
       const order = await storage.updateOrder(Number(req.params.id), orderData);
       if (!order) {
         return res.status(404).json({ message: "Order not found" });
@@ -639,10 +667,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(order);
     } catch (error) {
       console.error("Error updating order:", error);
-      if (error instanceof Error && error.message.includes("Invalid")) {
-          return res.status(400).json({ message: "Données de commande invalides.", error: error.message });
+      
+      // Gestion spécifique des erreurs de validation
+      if (error instanceof Error) {
+        if (error.message.includes("Invalid") || error.message.includes("Expected")) {
+          return res.status(400).json({ 
+            message: "Données de commande invalides.", 
+            error: error.message,
+            details: "Vérifiez que tous les champs ont des valeurs valides."
+          });
+        }
+        
+        if (error.message.includes("not found")) {
+          return res.status(404).json({ message: "Commande introuvable." });
+        }
       }
-      res.status(500).json({ message: "Failed to update order" });
+      
+      res.status(500).json({ 
+        message: "Erreur lors de la mise à jour de la commande",
+        error: error instanceof Error ? error.message : String(error)
+      });
     }
   });
 

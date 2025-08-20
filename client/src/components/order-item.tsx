@@ -54,13 +54,13 @@ const paymentStatusConfig = {
 export function OrderItem({ order }: OrderItemProps) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  
+
   // Récupérer les tables pour trouver le numéro de table correspondant à l'ID
   const { data: tables = [] } = useQuery({
     queryKey: ["/api/tables"],
     staleTime: 5 * 60 * 1000, // Cache 5 minutes
   });
-  
+
   const tableNumber = tables.find((table: any) => table.id === order.tableId)?.number || order.tableId;
 
   const updateOrderMutation = useMutation({
@@ -268,7 +268,7 @@ export function OrderItem({ order }: OrderItemProps) {
               </Button>
             </div>
           )}
-          
+
           {/* Bouton de téléchargement du reçu - disponible pour toutes les commandes payées */}
           {order.paymentStatus === "paid" && (
             <Button
