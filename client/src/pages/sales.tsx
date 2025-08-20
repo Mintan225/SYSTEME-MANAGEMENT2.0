@@ -135,6 +135,89 @@ function SaleForm({ onSuccess }: { onSuccess?: () => void }) {
   };
 
   return (
+    <>
+      <Button onClick={() => setOpen(true)}>
+        <Plus className="h-4 w-4 mr-2" />
+        Ajouter une vente
+      </Button>
+      {open && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white p-6 rounded-lg shadow-xl max-w-sm w-full">
+            <h2 className="text-xl font-bold mb-4">Ajouter une vente</h2>
+            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+              <div>
+                <Label htmlFor="amount">Montant (FCFA)</Label>
+                <Input
+                  id="amount"
+                  type="number"
+                  step="0.01"
+                  {...form.register("amount")}
+                  placeholder="0.00"
+                />
+                {form.formState.errors.amount && (
+                  <p className="text-sm text-red-500 mt-1">
+                    {form.formState.errors.amount.message}
+                  </p>
+                )}
+              </div>
+              
+              <div>
+                <Label htmlFor="paymentMethod">Méthode de paiement</Label>
+                <Select
+                  onValueChange={(value) => form.setValue("paymentMethod", value)}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Sélectionner une méthode..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="cash">Espèces</SelectItem>
+                    <SelectItem value="orange_money">Orange Money</SelectItem>
+                    <SelectItem value="mtn_momo">MTN Mobile Money</SelectItem>
+                    <SelectItem value="moov_money">Moov Money</SelectItem>
+                    <SelectItem value="wave">Wave</SelectItem>
+                  </SelectContent>
+                </Select>
+                {form.formState.errors.paymentMethod && (
+                  <p className="text-sm text-red-500 mt-1">
+                    {form.formState.errors.paymentMethod.message}
+                  </p>
+                )}
+              </div>
+
+              <div>
+                <Label htmlFor="description">Description (optionnel)</Label>
+                <Input
+                  id="description"
+                  {...form.register("description")}
+                  placeholder="Description de la vente..."
+                />
+              </div>
+
+              <div className="flex gap-2 pt-4">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setOpen(false)}
+                  className="flex-1"
+                >
+                  Annuler
+                </Button>
+                <Button
+                  type="submit"
+                  disabled={createMutation.isPending}
+                  className="flex-1"
+                >
+                  {createMutation.isPending ? "Ajout..." : "Ajouter"}
+                </Button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+    </>
+  );
+
+  return (
     // ENVELOPPEZ LE TOUT DANS UN FRAGMENT
     <>
       {/* COMMENTEZ Dialog et DialogTrigger */}
