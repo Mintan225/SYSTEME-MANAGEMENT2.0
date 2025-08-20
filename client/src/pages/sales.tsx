@@ -55,9 +55,12 @@ function SaleForm({ onSuccess }: { onSuccess?: () => void }) {
 
   const createMutation = useMutation({
     mutationFn: async (data: SaleFormData) => {
-      const response = await fetch("/api/sales", {
+      const response = await fetch("https://systeme-management2-0.onrender.com/api/sales", {
         method: "POST",
-        headers: authService.getAuthHeaders(),
+        headers: {
+          'Content-Type': 'application/json',
+          ...authService.getAuthHeaders(),
+        },
         body: JSON.stringify(data),
       });
 
@@ -81,9 +84,10 @@ function SaleForm({ onSuccess }: { onSuccess?: () => void }) {
       onSuccess?.();
     },
     onError: (error: Error) => {
+      console.error('Erreur lors de la création de la vente:', error);
       toast({
         title: "Erreur",
-        description: "Impossible d'ajouter la vente",
+        description: error.message || "Impossible d'ajouter la vente",
         variant: "destructive",
       });
     },
@@ -218,8 +222,11 @@ export default function Sales() {
   const { data: sales = [], isLoading } = useQuery<Sale[]>({
     queryKey: ["/api/sales", { startDate: start, endDate: end }],
     queryFn: async () => {
-      const response = await fetch(`/api/sales?startDate=${start}&endDate=${end}`, {
-        headers: authService.getAuthHeaders(),
+      const response = await fetch(`https://systeme-management2-0.onrender.com/api/sales?startDate=${start}&endDate=${end}`, {
+        headers: {
+          'Content-Type': 'application/json',
+          ...authService.getAuthHeaders(),
+        },
       });
       if (!response.ok) {
         throw new Error("Failed to fetch sales");
@@ -274,9 +281,12 @@ export default function Sales() {
 
   const deleteSaleMutation = useMutation({
     mutationFn: async (saleId: number) => {
-      const response = await fetch(`/api/sales/${saleId}`, {
+      const response = await fetch(`https://systeme-management2-0.onrender.com/api/sales/${saleId}`, {
         method: "DELETE",
-        headers: authService.getAuthHeaders(),
+        headers: {
+          'Content-Type': 'application/json',
+          ...authService.getAuthHeaders(),
+        },
       });
 
       if (!response.ok) {

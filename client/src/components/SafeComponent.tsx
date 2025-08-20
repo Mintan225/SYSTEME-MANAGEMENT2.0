@@ -1,5 +1,4 @@
-
-import React, { Component, ErrorInfo, ReactNode, useEffect, useRef } from 'react';
+import React, { Component, ErrorInfo, ReactNode, useEffect, useRef, useState } from 'react';
 
 interface SafeComponentProps {
   children: ReactNode;
@@ -38,7 +37,7 @@ export function useAbortController() {
 
   useEffect(() => {
     controllerRef.current = new AbortController();
-    
+
     return () => {
       if (controllerRef.current && !controllerRef.current.signal.aborted) {
         controllerRef.current.abort();
@@ -81,9 +80,9 @@ class SafeComponent extends Component<SafeComponentProps, SafeComponentState> {
 
   componentDidCatch(error: Error, errorInfo: ErrorInfo) {
     console.warn('SafeComponent caught error:', error.message);
-    
+
     // Handle specific DOM errors that don't need to crash the app
-    if (error.message.includes('removeChild') || 
+    if (error.message.includes('removeChild') ||
         error.message.includes('NotFoundError') ||
         error.name === 'NotFoundError') {
       console.warn('DOM error caught and handled safely');
@@ -108,9 +107,9 @@ class SafeComponent extends Component<SafeComponentProps, SafeComponentState> {
 
     if (this.state.hasError) {
       return (
-        <div style={{ 
-          padding: '10px', 
-          border: '1px solid #ffeaa7', 
+        <div style={{
+          padding: '10px',
+          border: '1px solid #ffeaa7',
           backgroundColor: '#fff3cd',
           borderRadius: '4px',
           margin: '10px 0'
