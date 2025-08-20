@@ -1,43 +1,4 @@
-const onSubmit = (data: SaleFormData) => {
-    createMutation.mutate(data);
-};
-
-// Ajouter cette fonction
-const handleClose = () => {
-    setOpen(false);
-    form.reset(); // Réinitialiser le formulaire lors de la fermeture
-};
-
-return (
-    <>
-        <Button onClick={() => setOpen(true)}>
-            <Plus className="h-4 w-4 mr-2" />
-            Ajouter une vente
-        </Button>
-        {open && (
-            <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-                <div className="bg-white p-6 rounded-lg shadow-xl max-w-sm w-full">
-                    {/* ... reste du code ... */}
-                    <div className="flex gap-2 pt-4">
-                        <Button
-                            type="button"
-                            variant="outline"
-                            onClick={handleClose} // Utiliser handleClose au lieu de setOpen(false)
-                            className="flex-1"
-                        >
-                            Annuler
-                        </Button>
-                        {/* ... reste du code ... */}
-                    </div>
-                </div>
-            </div>
-        )}
-    </>
-);const handleDeleteSale = async (saleId: number) => {
-    if (window.confirm("Êtes-vous sûr de vouloir supprimer cette vente ?")) {
-        deleteSaleMutation.mutate(saleId);
-    }
-};import { useState } from "react";
+import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -48,14 +9,6 @@ import { formatCurrency } from "@/lib/currency";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-// COMMENTEZ CES IMPORTS DE DIALOG
-// import {
-//   Dialog,
-//   DialogContent,
-//   DialogHeader,
-//   DialogTitle,
-//   DialogTrigger,
-// } from "@/components/ui/dialog";
 import {
   Select,
   SelectContent,
@@ -64,10 +17,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { TrendingUp, Euro, Calendar, Download, Plus, Trash2 } from "lucide-react";
-// COMMENTEZ CES IMPORTS D'ALERTDIALOG
-// import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
-// Removed apiRequest import - using native fetch instead
-import  authService  from "@/lib/auth";
+import authService from "@/lib/auth";
 import { useToast } from "@/hooks/use-toast";
 import { format, startOfDay, endOfDay, startOfWeek, endOfWeek, startOfMonth, endOfMonth } from "date-fns";
 import { fr } from "date-fns/locale";
@@ -79,6 +29,14 @@ const saleFormSchema = z.object({
 });
 
 type SaleFormData = z.infer<typeof saleFormSchema>;
+
+interface Sale {
+  id: number;
+  amount: string;
+  paymentMethod: string;
+  description?: string;
+  createdAt: string;
+}
 
 function SaleForm({ onSuccess }: { onSuccess?: () => void }) {
   const [open, setOpen] = useState(false);
@@ -95,7 +53,7 @@ function SaleForm({ onSuccess }: { onSuccess?: () => void }) {
   });
 
   const createMutation = useMutation({
-    mutationFn: async (data: any) => {
+    mutationFn: async (data: SaleFormData) => {
       const response = await fetch("/api/sales", {
         method: "POST",
         headers: authService.getAuthHeaders(),
@@ -216,101 +174,6 @@ function SaleForm({ onSuccess }: { onSuccess?: () => void }) {
       )}
     </>
   );
-
-  return (
-    // ENVELOPPEZ LE TOUT DANS UN FRAGMENT
-    <>
-      {/* COMMENTEZ Dialog et DialogTrigger */}
-      {/* <Dialog open={open} onOpenChange={setOpen}>
-        <DialogTrigger asChild> */}
-          <Button onClick={() => setOpen(true)}>
-            <Plus className="h-4 w-4 mr-2" />
-            Ajouter une vente
-          </Button>
-        {/* </DialogTrigger>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Ajouter une vente</DialogTitle>
-          </DialogHeader> */}
-          {/* AFFICHEZ LE FORMULAIRE DIRECTEMENT SI 'open' EST VRAI */}
-          {open && (
-            <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-              <div className="bg-white p-6 rounded-lg shadow-xl max-w-sm w-full">
-                <h2 className="text-xl font-bold mb-4">Ajouter une vente</h2>
-                <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-                  <div>
-                    <Label htmlFor="amount">Montant (FCFA)</Label>
-                    <Input
-                      id="amount"
-                      type="number"
-                      step="0.01"
-                      {...form.register("amount")}
-                      placeholder="0.00"
-                    />
-                    {form.formState.errors.amount && (
-                      <p className="text-sm text-red-500 mt-1">
-                        {form.formState.errors.amount.message}
-                      </p>
-                    )}
-                  </div>
-                  
-                  <div>
-                    <Label htmlFor="paymentMethod">Méthode de paiement</Label>
-                    <Select
-                      onValueChange={(value) => form.setValue("paymentMethod", value)}
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Sélectionner une méthode..." />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="cash">Espèces</SelectItem>
-                        <SelectItem value="orange_money">Orange Money</SelectItem>
-                        <SelectItem value="mtn_momo">MTN Mobile Money</SelectItem>
-                        <SelectItem value="moov_money">Moov Money</SelectItem>
-                        <SelectItem value="wave">Wave</SelectItem>
-                      </SelectContent>
-                    </Select>
-                    {form.formState.errors.paymentMethod && (
-                      <p className="text-sm text-red-500 mt-1">
-                        {form.formState.errors.paymentMethod.message}
-                      </p>
-                    )}
-                  </div>
-
-                  <div>
-                    <Label htmlFor="description">Description (optionnel)</Label>
-                    <Input
-                      id="description"
-                      {...form.register("description")}
-                      placeholder="Description de la vente..."
-                    />
-                  </div>
-
-                  <div className="flex gap-2 pt-4">
-                    <Button
-                      type="button"
-                      variant="outline"
-                      onClick={() => setOpen(false)}
-                      className="flex-1"
-                    >
-                      Annuler
-                    </Button>
-                    <Button
-                      type="submit"
-                      disabled={createMutation.isPending}
-                      className="flex-1"
-                    >
-                      {createMutation.isPending ? "Ajout..." : "Ajouter"}
-                    </Button>
-                  </div>
-                </form>
-              </div>
-            </div>
-          )}
-        {/* </DialogContent>
-      </Dialog> */}
-    </>
-  );
 }
 
 export default function Sales() {
@@ -320,7 +183,6 @@ export default function Sales() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  // Calculate date ranges
   const getDateRange = () => {
     const now = new Date();
     switch (dateRange) {
@@ -351,8 +213,17 @@ export default function Sales() {
 
   const { start, end } = getDateRange();
 
-  const { data: sales = [], isLoading } = useQuery({
+  const { data: sales = [], isLoading } = useQuery<Sale[]>({
     queryKey: ["/api/sales", { startDate: start, endDate: end }],
+    queryFn: async () => {
+      const response = await fetch(`/api/sales?startDate=${start}&endDate=${end}`, {
+        headers: authService.getAuthHeaders(),
+      });
+      if (!response.ok) {
+        throw new Error("Failed to fetch sales");
+      }
+      return response.json();
+    },
     enabled: !!start && !!end,
   });
 
@@ -360,14 +231,13 @@ export default function Sales() {
     queryKey: ["/api/analytics/daily"],
   });
 
-  // Calculate totals
-  const totalSales = sales.reduce((sum: number, sale: any) => sum + parseFloat(sale.amount), 0);
+  const totalSales = sales.reduce((sum: number, sale: Sale) => sum + parseFloat(sale.amount), 0);
   const cashSales = sales
-    .filter((sale: any) => sale.paymentMethod === "cash")
-    .reduce((sum: number, sale: any) => sum + parseFloat(sale.amount), 0);
+    .filter((sale: Sale) => sale.paymentMethod === "cash")
+    .reduce((sum: number, sale: Sale) => sum + parseFloat(sale.amount), 0);
   const mobileMoneySales = sales
-    .filter((sale: any) => sale.paymentMethod === "mobile_money")
-    .reduce((sum: number, sale: any) => sum + parseFloat(sale.amount), 0);
+    .filter((sale: Sale) => ["orange_money", "mtn_momo", "moov_money", "wave"].includes(sale.paymentMethod))
+    .reduce((sum: number, sale: Sale) => sum + parseFloat(sale.amount), 0);
 
   const getPaymentMethodLabel = (method: string) => {
     switch (method) {
@@ -381,8 +251,6 @@ export default function Sales() {
         return "Moov Money";
       case "wave":
         return "Wave";
-      case "mobile_money": // Fallback for generic mobile_money if used in backend
-        return "Mobile Money";
       default:
         return method;
     }
@@ -396,7 +264,6 @@ export default function Sales() {
       case "mtn_momo":
       case "moov_money":
       case "wave":
-      case "mobile_money":
         return "bg-primary";
       default:
         return "bg-gray-500";
@@ -436,7 +303,9 @@ export default function Sales() {
   });
 
   const handleDeleteSale = (saleId: number) => {
-    deleteSaleMutation.mutate(saleId);
+    if (window.confirm("Êtes-vous sûr de vouloir supprimer cette vente ?")) {
+      deleteSaleMutation.mutate(saleId);
+    }
   };
 
   const exportToPDF = () => {
@@ -445,7 +314,6 @@ export default function Sales() {
     import('jspdf').then(({ default: jsPDF }) => {
       const doc = new jsPDF();
       
-      // En-tête
       doc.setFontSize(20);
       doc.text('Rapport des Ventes', 20, 20);
       
@@ -453,60 +321,49 @@ export default function Sales() {
       doc.text(`Période: ${dateRange}`, 20, 35);
       doc.text(`Généré le: ${format(new Date(), "dd/MM/yyyy HH:mm", { locale: fr })}`, 20, 45);
       
-      // Tableau des ventes
-      const tableData = sales.map((sale: any) => [
+      const tableData = sales.map((sale: Sale) => [
         format(new Date(sale.createdAt), "dd/MM/yyyy HH:mm", { locale: fr }),
         `${parseFloat(sale.amount).toFixed(0)} FCFA`,
         getPaymentMethodLabel(sale.paymentMethod),
         sale.description || ""
       ]);
       
-      // En-têtes du tableau
       const headers = ["Date", "Montant", "Méthode", "Description"];
-      
       let yPos = 60;
       
-      // Dessiner les en-têtes
       doc.setFontSize(10);
-      doc.setFont(undefined, 'bold');
+      doc.setFont('helvetica', 'bold');
       headers.forEach((header, i) => {
         doc.text(header, 20 + (i * 45), yPos);
       });
       
-      // Ligne sous les en-têtes
       doc.line(20, yPos + 2, 190, yPos + 2);
       yPos += 10;
       
-      // Données du tableau
-      doc.setFont(undefined, 'normal');
-      tableData.forEach((row, index) => {
+      doc.setFont('helvetica', 'normal');
+      tableData.forEach((row: string[]) => {
         if (yPos > 270) {
           doc.addPage();
           yPos = 20;
         }
         
         row.forEach((cell, i) => {
-          const maxWidth = 40;
           const text = cell.length > 20 ? cell.substring(0, 20) + '...' : cell;
           doc.text(text, 20 + (i * 45), yPos);
         });
         yPos += 8;
       });
       
-      // Total
-      const total = sales.reduce((sum: number, sale: any) => sum + parseFloat(sale.amount), 0);
       yPos += 10;
-      doc.setFont(undefined, 'bold');
-      doc.text(`Total: ${total.toFixed(0)} FCFA`, 20, yPos);
+      doc.setFont('helvetica', 'bold');
+      doc.text(`Total: ${totalSales.toFixed(0)} FCFA`, 20, yPos);
       
-      // Télécharger le PDF
       doc.save(`ventes-${dateRange}-${format(new Date(), "yyyy-MM-dd")}.pdf`);
     });
   };
 
   return (
     <div className="space-y-6">
-      {/* Header */}
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold text-gray-900">Suivi des Ventes</h1>
         <div className="flex gap-2">
@@ -518,7 +375,6 @@ export default function Sales() {
         </div>
       </div>
 
-      {/* Date Range Selector */}
       <Card>
         <CardHeader>
           <CardTitle>Période d'analyse</CardTitle>
@@ -565,7 +421,6 @@ export default function Sales() {
         </CardContent>
       </Card>
 
-      {/* Statistics Cards */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
         <Card>
           <CardContent className="p-6">
@@ -640,7 +495,6 @@ export default function Sales() {
         </Card>
       </div>
 
-      {/* Sales List */}
       <Card>
         <CardHeader>
           <CardTitle>Détail des ventes</CardTitle>
@@ -657,7 +511,7 @@ export default function Sales() {
             </div>
           ) : sales.length > 0 ? (
             <div className="space-y-4">
-              {sales.map((sale: any) => (
+              {sales.map((sale: Sale) => (
                 <div
                   key={sale.id}
                   className="flex items-center justify-between py-3 border-b last:border-b-0"
@@ -683,37 +537,11 @@ export default function Sales() {
                     )}
                   </div>
                   <div className="flex-shrink-0 ml-4">
-                    {/* COMMENTEZ AlertDialog */}
-                    {/* <AlertDialog>
-                      <AlertDialogTrigger asChild>
-                        <Button variant="outline" size="sm" className="text-red-600 hover:text-red-700">
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </AlertDialogTrigger>
-                      <AlertDialogContent>
-                        <AlertDialogHeader>
-                          <AlertDialogTitle>Supprimer cette vente</AlertDialogTitle>
-                          <AlertDialogDescription>
-                            Êtes-vous sûr de vouloir supprimer cette vente de {formatCurrency(parseFloat(sale.amount))} ? 
-                            Cette action ne peut pas être annulée.
-                          </AlertDialogDescription>
-                        </AlertDialogHeader>
-                        <AlertDialogFooter>
-                          <AlertDialogCancel>Annuler</AlertDialogCancel>
-                          <AlertDialogAction
-                            onClick={() => handleDeleteSale(sale.id)}
-                            className="bg-red-600 hover:bg-red-700"
-                          >
-                            Supprimer
-                          </AlertDialogAction>
-                        </AlertDialogFooter>
-                      </AlertDialogContent>
-                    </AlertDialog> */}
                     <Button
                       variant="outline"
                       size="sm"
                       className="text-red-600 hover:text-red-700"
-                      onClick={() => { /* Logique de suppression temporaire si nécessaire */ console.log("Supprimer vente", sale.id); handleDeleteSale(sale.id); }}
+                      onClick={() => handleDeleteSale(sale.id)}
                     >
                       <Trash2 className="h-4 w-4" />
                     </Button>
