@@ -1,3 +1,4 @@
+
 import React, { Component, ErrorInfo, ReactNode, useEffect, useRef } from 'react';
 
 interface SafeComponentProps {
@@ -9,6 +10,43 @@ interface SafeComponentProps {
 interface SafeComponentState {
   hasError: boolean;
   error: Error | null;
+}
+
+// Hook personnalisé pour éviter les mises à jour d'état après démontage
+export function useSafeState<T>(initialState: T) {
+  const [state, setState] = React.useState<T>(initialState);
+  const isMountedRef = useRef(true);
+
+  useEffect(() => {
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, []);
+
+  const setSafeState = React.useCallback((newState: T | ((prevState: T) => T)) => {
+    if (isMountedRef.current) {
+      setState(newState);
+    }
+  }, []);
+
+  return [state, setSafeState] as const;
+}
+
+// Hook pour éviter les fuites mémoire dans les requêtes async
+export function useAbortController() {
+  const controllerRef = useRef<AbortController>();
+
+  useEffect(() => {
+    controllerRef.current = new AbortController();
+    
+    return () => {
+      if (controllerRef.current && !controllerRef.current.signal.aborted) {
+        controllerRef.current.abort();
+      }
+    };
+  }, []);
+
+  return controllerRef.current;
 }
 
 /**
@@ -26,8 +64,15 @@ class SafeComponent extends Component<SafeComponentProps, SafeComponentState> {
     };
   }
 
+  componentDidMount() {
+    this.isMounted = true;
+  }
+
+  componentWillUnmount() {
+    this.isMounted = false;
+  }
+
   static getDerivedStateFromError(error: Error): SafeComponentState {
-    // Update state so the next render will show the fallback UI
     return {
       hasError: true,
       error,
@@ -35,103 +80,50 @@ class SafeComponent extends Component<SafeComponentProps, SafeComponentState> {
   }
 
   componentDidCatch(error: Error, errorInfo: ErrorInfo) {
-    // Log the error
-    console.warn('SafeComponent caught an error:', error, errorInfo);
+    console.warn('SafeComponent caught error:', error.message);
     
-    // Call the onError callback if provided
+    // Handle specific DOM errors that don't need to crash the app
+    if (error.message.includes('removeChild') || 
+        error.message.includes('NotFoundError') ||
+        error.name === 'NotFoundError') {
+      console.warn('DOM error caught and handled safely');
+      // For DOM errors, we can often recover by just re-rendering
+      setTimeout(() => {
+        if (this.isMounted) {
+          this.setState({ hasError: false, error: null });
+        }
+      }, 100);
+      return;
+    }
+
     if (this.props.onError) {
       this.props.onError(error, errorInfo);
     }
-
-    // Special handling for DOM manipulation errors
-    if (error.message && error.message.includes('removeChild')) {
-      console.warn('DOM manipulation error caught and handled safely:', error.message);
-    }
-  }
-
-  componentWillUnmount() {
-    this.isMounted = false;
   }
 
   render() {
-    if (this.state.hasError) {
-      // Render fallback UI
-      if (this.props.fallback) {
-        return this.props.fallback;
-      }
+    if (this.state.hasError && this.props.fallback) {
+      return this.props.fallback;
+    }
 
+    if (this.state.hasError) {
       return (
-        <div className="safe-component-error p-4 text-center">
-          <div className="text-sm text-gray-500">
-            Une erreur s'est produite lors du rendu de ce composant.
-          </div>
+        <div style={{ 
+          padding: '10px', 
+          border: '1px solid #ffeaa7', 
+          backgroundColor: '#fff3cd',
+          borderRadius: '4px',
+          margin: '10px 0'
+        }}>
+          <p style={{ color: '#856404', margin: 0 }}>
+            Une erreur temporaire s'est produite. Rechargement en cours...
+          </p>
         </div>
       );
     }
 
     return this.props.children;
   }
-}
-
-/**
- * Hook to safely manage component mounted state
- */
-export function useSafeMounted() {
-  const isMountedRef = useRef(true);
-
-  useEffect(() => {
-    return () => {
-      isMountedRef.current = false;
-    };
-  }, []);
-
-  return isMountedRef;
-}
-
-/**
- * Safe state setter that only updates if component is still mounted
- */
-export function useSafeState<T>(initialState: T | (() => T)) {
-  const [state, setState] = React.useState<T>(initialState);
-  const isMountedRef = useSafeMounted();
-
-  const setSafeState = React.useCallback((newState: T | ((prevState: T) => T)) => {
-    if (isMountedRef.current) {
-      setState(newState);
-    }
-  }, [isMountedRef]);
-
-  return [state, setSafeState] as const;
-}
-
-/**
- * Safe DOM manipulation wrapper
- */
-export function safeRemoveChild(parent: Node, child: Node): boolean {
-  try {
-    if (parent && child && parent.contains(child)) {
-      parent.removeChild(child);
-      return true;
-    }
-  } catch (error) {
-    console.warn('Safe removeChild prevented error:', error);
-  }
-  return false;
-}
-
-/**
- * Safe DOM appendChild wrapper
- */
-export function safeAppendChild(parent: Node, child: Node): boolean {
-  try {
-    if (parent && child && !parent.contains(child)) {
-      parent.appendChild(child);
-      return true;
-    }
-  } catch (error) {
-    console.warn('Safe appendChild prevented error:', error);
-  }
-  return false;
 }
 
 export default SafeComponent;

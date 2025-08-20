@@ -12,6 +12,7 @@ interface AuthResponse {
 class AuthService {
   private token: string | null = null;
   private user: User | null = null;
+  private isLoggingOut: boolean = false;
 
   constructor() {
     this.loadFromStorage();
@@ -19,50 +20,94 @@ class AuthService {
 
   private loadFromStorage() {
     if (typeof window !== 'undefined') {
-      const token = localStorage.getItem('auth_token');
-      const userData = localStorage.getItem('auth_user');
-      
-      if (token && userData) {
-        this.token = token;
-        this.user = JSON.parse(userData);
+      try {
+        const token = localStorage.getItem('auth_token');
+        const userData = localStorage.getItem('auth_user');
+        
+        if (token && userData) {
+          this.token = token;
+          this.user = JSON.parse(userData);
+        }
+      } catch (error) {
+        console.error('Error loading auth data from storage:', error);
+        this.clearStorage();
       }
     }
   }
 
   private saveToStorage(token: string, user: User) {
     if (typeof window !== 'undefined') {
-      localStorage.setItem('auth_token', token);
-      localStorage.setItem('auth_user', JSON.stringify(user));
+      try {
+        localStorage.setItem('auth_token', token);
+        localStorage.setItem('auth_user', JSON.stringify(user));
+      } catch (error) {
+        console.error('Error saving auth data to storage:', error);
+      }
     }
   }
 
   private clearStorage() {
     if (typeof window !== 'undefined') {
-      localStorage.removeItem('auth_token');
-      localStorage.removeItem('auth_user');
+      try {
+        localStorage.removeItem('auth_token');
+        localStorage.removeItem('auth_user');
+      } catch (error) {
+        console.error('Error clearing auth storage:', error);
+      }
     }
   }
 
   async login(username: string, password: string): Promise<AuthResponse> {
-    const response = await fetch('/api/auth/login', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ username, password }),
-    });
-
-    if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.message || 'Login failed');
+    if (!username || !password) {
+      throw new Error('Nom d\'utilisateur et mot de passe requis');
     }
 
-    const data: AuthResponse = await response.json();
-    this.token = data.token;
-    this.user = data.user;
-    this.saveToStorage(data.token, data.user);
-    
-    return data;
+    try {
+      const response = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ 
+          username: username.trim(), 
+          password: password 
+        }),
+      });
+
+      if (!response.ok) {
+        let errorMessage = 'Erreur de connexion';
+        try {
+          const error = await response.json();
+          errorMessage = error.message || errorMessage;
+        } catch (parseError) {
+          console.error('Error parsing error response:', parseError);
+        }
+        
+        // Dispatch custom error event for auth guard
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new CustomEvent('apiError', {
+            detail: { status: response.status, message: errorMessage }
+          }));
+        }
+        
+        throw new Error(errorMessage);
+      }
+
+      const data: AuthResponse = await response.json();
+      
+      if (!data.token || !data.user) {
+        throw new Error('Réponse d\'authentification invalide');
+      }
+      
+      this.token = data.token;
+      this.user = data.user;
+      this.saveToStorage(data.token, data.user);
+      
+      return data;
+    } catch (error) {
+      console.error('Login error:', error);
+      throw error;
+    }
   }
 
   async register(username: string, password: string): Promise<AuthResponse> {
@@ -88,12 +133,21 @@ class AuthService {
   }
 
   logout() {
+    if (this.isLoggingOut) {
+      return; // Prevent multiple simultaneous logouts
+    }
+    
+    this.isLoggingOut = true;
     this.token = null;
     this.user = null;
     this.clearStorage();
-    // Rediriger vers la page de connexion
+    
+    // Use setTimeout to prevent state update issues
     if (typeof window !== 'undefined') {
-      window.location.href = '/login';
+      setTimeout(() => {
+        this.isLoggingOut = false;
+        window.location.href = '/login';
+      }, 100);
     }
   }
 
