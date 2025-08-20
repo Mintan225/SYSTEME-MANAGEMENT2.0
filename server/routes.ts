@@ -902,15 +902,89 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
     app.post("/api/expenses", authenticateToken, authorizePermission(["expenses.create"]), async (req, res) => {
         try {
-            const expenseData = insertExpenseSchema.parse(req.body);
-            const expense = await storage.createExpense(expenseData);
+            console.log("[EXPENSE_CREATE_DEBUG] Request body received:", JSON.stringify(req.body));
+            
+            // Check for required fields first
+            if (!req.body.description || !req.body.amount || !req.body.category) {
+                console.log("[EXPENSE_CREATE_DEBUG] Missing required fields:", {
+                    description: req.body.description,
+                    amount: req.body.amount,
+                    category: req.body.category
+                });
+                return res.status(400).json({
+                    message: "Missing required fields",
+                    details: "Description, amount, and category are all required",
+                    received: req.body
+                });
+            }
+
+            // Validate amount can be converted to number
+            const parsedAmount = typeof req.body.amount === 'number' ? req.body.amount : parseFloat(req.body.amount);
+            if (isNaN(parsedAmount) || parsedAmount <= 0) {
+                console.log("[EXPENSE_CREATE_DEBUG] Invalid amount:", {
+                    original: req.body.amount,
+                    parsed: parsedAmount
+                });
+                return res.status(400).json({
+                    message: "Invalid amount",
+                    details: "Amount must be a positive number"
+                });
+            }
+            
+            // Prepare data for validation - convert amount to string as expected by schema
+            const expenseData = {
+                description: String(req.body.description).trim(),
+                amount: parsedAmount.toString(), // Convert to string as expected by schema
+                category: String(req.body.category).trim(),
+                receiptUrl: req.body.receiptUrl ? String(req.body.receiptUrl).trim() : undefined
+            };
+            
+            console.log("[EXPENSE_CREATE_DEBUG] Data to validate:", JSON.stringify(expenseData));
+            
+            // Use safeParse for better error handling
+            const parsedData = insertExpenseSchema.safeParse(expenseData);
+            if (!parsedData.success) {
+                console.log("[EXPENSE_CREATE_DEBUG] Schema validation failed:", parsedData.error.issues);
+                return res.status(400).json({
+                    message: "Expense data validation failed",
+                    errors: parsedData.error.issues,
+                    details: "Please check that all fields are properly formatted"
+                });
+            }
+            
+            console.log("[EXPENSE_CREATE_DEBUG] Schema validation passed:", JSON.stringify(parsedData.data));
+            
+            // Create expense with validated data
+            const expense = await storage.createExpense(parsedData.data);
+            console.log("[EXPENSE_CREATE_DEBUG] Expense created successfully:", expense);
+            
             res.json(expense);
         } catch (error) {
-            console.error("Error creating expense:", error);
-            if (error instanceof ZodError) {
-                return res.status(400).json({ message: "Données de dépense invalides.", errors: error.issues });
+            console.error("[EXPENSE_CREATE_DEBUG] Error creating expense:", error);
+            
+            // Handle specific error types
+            if (error instanceof Error) {
+                // Check for database constraint errors
+                if (error.message.includes('constraint') || error.message.includes('violates')) {
+                    return res.status(400).json({
+                        message: "Database constraint violation",
+                        error: error.message
+                    });
+                }
+                
+                // Check for connection errors
+                if (error.message.includes('connection') || error.message.includes('connect')) {
+                    return res.status(503).json({
+                        message: "Database connection error",
+                        error: "Unable to connect to the database"
+                    });
+                }
             }
-            res.status(500).json({ message: "Failed to create expense", error: error instanceof Error ? error.message : String(error) });
+            
+            res.status(500).json({
+                message: "Failed to create expense",
+                error: error instanceof Error ? error.message : String(error)
+            });
         }
     });
 
