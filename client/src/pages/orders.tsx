@@ -6,8 +6,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Search, ShoppingCart, Trash2 } from "lucide-react";
-// COMMENTEZ CES IMPORTS D'ALERTDIALOG
-// import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import authService from "@/lib/auth";
@@ -169,8 +168,7 @@ export default function Orders() {
                     <OrderItem order={order} />
                   </div>
                   <div className="flex-shrink-0 pt-4">
-                    {/* COMMENTEZ AlertDialog */}
-                    {/* <AlertDialog>
+                    <AlertDialog>
                       <AlertDialogTrigger asChild>
                         <Button variant="outline" size="sm" className="text-red-600 hover:text-red-700">
                           <Trash2 className="h-4 w-4" />
@@ -194,15 +192,7 @@ export default function Orders() {
                           </AlertDialogAction>
                         </AlertDialogFooter>
                       </AlertDialogContent>
-                    </AlertDialog> */}
-                    <Button 
-                      variant="outline" 
-                      size="sm" 
-                      className="text-red-600 hover:text-red-700"
-                      onClick={() => { /* Logique de suppression temporaire si nécessaire */ console.log("Supprimer commande", order.id); handleDeleteOrder(order.id); }}
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
+                    </AlertDialog>
                   </div>
                 </div>
               ))}

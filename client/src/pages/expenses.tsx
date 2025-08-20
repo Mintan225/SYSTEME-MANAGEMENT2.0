@@ -21,16 +21,14 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-// COMMENTEZ CES IMPORTS DE DIALOG
-// import {
-//   Dialog,
-//   DialogContent,
-//   DialogHeader,
-//   DialogTitle,
-//   DialogTrigger,
-// } from "@/components/ui/dialog";
-// COMMENTEZ CES IMPORTS D'ALERTDIALOG
-// import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Plus, Edit, Trash2, Receipt, Calendar, Download, TrendingDown } from "lucide-react";
 
 import { format, startOfDay, endOfDay, startOfWeek, endOfWeek, startOfMonth, endOfMonth } from "date-fns";
@@ -169,24 +167,24 @@ function ExpenseForm({ expense, onSuccess }: ExpenseFormProps) {
   const isLoading = createMutation.isPending || updateMutation.isPending;
 
   return (
-    // DÉBUT DE LA CORRECTION : ENVELOPPEZ LE TOUT DANS UN FRAGMENT
-    <>
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild>
         {expense ? (
-          <Button size="sm" variant="outline" onClick={() => setOpen(true)}>
+          <Button size="sm" variant="outline">
             <Edit className="h-4 w-4" />
           </Button>
         ) : (
-          <Button onClick={() => setOpen(true)}>
+          <Button>
             <Plus className="h-4 w-4 mr-2" />
             Ajouter une dépense
           </Button>
         )}
-          {/* AFFICHEZ LE FORMULAIRE DIRECTEMENT SI 'open' EST VRAI */}
-          {open && (
-            <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-              <div className="bg-white p-6 rounded-lg shadow-xl max-w-sm w-full">
-                <h2 className="text-xl font-bold mb-4">{expense ? "Modifier la dépense" : "Ajouter une dépense"}</h2>
-                <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+      </DialogTrigger>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>{expense ? "Modifier la dépense" : "Ajouter une dépense"}</DialogTitle>
+        </DialogHeader>
+        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
                   <div className="space-y-2">
                     <Label htmlFor="description">Description</Label>
                     <Textarea
@@ -252,22 +250,20 @@ function ExpenseForm({ expense, onSuccess }: ExpenseFormProps) {
                   </div>
 
                   <div className="flex justify-end space-x-2">
-                    <Button
-                      type="button"
-                      variant="outline"
-                      onClick={() => setOpen(false)}
-                    >
-                      Annuler
-                    </Button>
-                    <Button type="submit" disabled={isLoading}>
-                      {isLoading ? "Enregistrement..." : expense ? "Modifier" : "Ajouter"}
-                    </Button>
-                  </div>
-                </form>
-              </div>
-            </div>
-          )}
-    </> // FIN DE LA CORRECTION : FERMETURE DU FRAGMENT
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setOpen(false)}
+            >
+              Annuler
+            </Button>
+            <Button type="submit" disabled={isLoading}>
+              {isLoading ? "Enregistrement..." : expense ? "Modifier" : "Ajouter"}
+            </Button>
+          </div>
+        </form>
+      </DialogContent>
+    </Dialog>
   );
 }
 
@@ -631,8 +627,7 @@ export default function Expenses() {
                   </div>
                   <div className="flex space-x-2">
                     <ExpenseForm expense={expense} />
-                    {/* COMMENTEZ AlertDialog */}
-                    {/* <AlertDialog>
+                    <AlertDialog>
                       <AlertDialogTrigger asChild>
                         <Button
                           size="sm"
@@ -661,15 +656,7 @@ export default function Expenses() {
                           </AlertDialogAction>
                         </AlertDialogFooter>
                       </AlertDialogContent>
-                    </AlertDialog> */}
-                    <Button
-                      size="sm"
-                      variant="destructive"
-                      disabled={deleteMutation.isPending}
-                      onClick={() => { /* Logique de suppression temporaire si nécessaire */ console.log("Supprimer dépense", expense.id); deleteMutation.mutate(expense.id); }}
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
+                    </AlertDialog>
                   </div>
                 </div>
               ))}
