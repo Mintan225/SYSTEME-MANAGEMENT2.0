@@ -258,6 +258,7 @@ function ExpenseForm({ expense, onSuccess }: ExpenseFormProps) {
                   <div className="space-y-2">
                     <Label htmlFor="category">Catégorie</Label>
                     <Select
+                      value={form.watch("category")}
                       onValueChange={(value) => form.setValue("category", value)}
                       defaultValue={expense?.category || ""}
                     >
@@ -289,17 +290,6 @@ function ExpenseForm({ expense, onSuccess }: ExpenseFormProps) {
                   </div>
 
                   <div className="flex justify-end space-x-2">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => setOpen(false)}
-            >
-              Annuler
-            </Button>
-            <Button type="submit" disabled={isLoading}>
-              {isLoading ? "Enregistrement..." : expense ? "Modifier" : "Ajouter"}
-            </Button>
-          <div className="flex justify-end space-x-2">
                 <Button
                   type="button"
                   variant="outline"
