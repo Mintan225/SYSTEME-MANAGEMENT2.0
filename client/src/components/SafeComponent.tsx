@@ -1,122 +1,72 @@
-import React, { Component, ErrorInfo, ReactNode, useEffect, useRef, useState } from 'react';
+import React, { Component, ReactNode } from 'react';
 
-interface SafeComponentProps {
+interface Props {
   children: ReactNode;
   fallback?: ReactNode;
-  onError?: (error: Error, errorInfo: ErrorInfo) => void;
+  onError?: (error: Error, errorInfo: any) => void;
 }
 
-interface SafeComponentState {
+interface State {
   hasError: boolean;
-  error: Error | null;
+  error?: Error;
 }
 
-// Hook personnalisé pour éviter les mises à jour d'état après démontage
-export function useSafeState<T>(initialState: T) {
-  const [state, setState] = React.useState<T>(initialState);
-  const isMountedRef = useRef(true);
+export class SafeComponent extends Component<Props, State> {
+  private retryCount = 0;
+  private maxRetries = 3;
 
-  useEffect(() => {
-    return () => {
-      isMountedRef.current = false;
-    };
-  }, []);
-
-  const setSafeState = React.useCallback((newState: T | ((prevState: T) => T)) => {
-    if (isMountedRef.current) {
-      setState(newState);
-    }
-  }, []);
-
-  return [state, setSafeState] as const;
-}
-
-// Hook pour éviter les fuites mémoire dans les requêtes async
-export function useAbortController() {
-  const controllerRef = useRef<AbortController>();
-
-  useEffect(() => {
-    controllerRef.current = new AbortController();
-
-    return () => {
-      if (controllerRef.current && !controllerRef.current.signal.aborted) {
-        controllerRef.current.abort();
-      }
-    };
-  }, []);
-
-  return controllerRef.current;
-}
-
-/**
- * Safe Component wrapper that catches DOM manipulation errors
- * and prevents crashes from removeChild and similar DOM errors
- */
-class SafeComponent extends Component<SafeComponentProps, SafeComponentState> {
-  private isMounted = true;
-
-  constructor(props: SafeComponentProps) {
+  constructor(props: Props) {
     super(props);
-    this.state = {
-      hasError: false,
-      error: null,
-    };
+    this.state = { hasError: false };
   }
 
-  componentDidMount() {
-    this.isMounted = true;
+  static getDerivedStateFromError(error: Error): State {
+    return { hasError: true, error };
   }
 
-  componentWillUnmount() {
-    this.isMounted = false;
-  }
+  componentDidCatch(error: Error, errorInfo: any) {
+    console.error('SafeComponent caught an error:', error, errorInfo);
+    this.props.onError?.(error, errorInfo);
 
-  static getDerivedStateFromError(error: Error): SafeComponentState {
-    return {
-      hasError: true,
-      error,
-    };
-  }
-
-  componentDidCatch(error: Error, errorInfo: ErrorInfo) {
-    console.warn('SafeComponent caught error:', error.message);
-
-    // Handle specific DOM errors that don't need to crash the app
-    if (error.message.includes('removeChild') ||
-        error.message.includes('NotFoundError') ||
-        error.name === 'NotFoundError') {
-      console.warn('DOM error caught and handled safely');
-      // For DOM errors, we can often recover by just re-rendering
+    // Auto-retry for DOM manipulation errors
+    if (this.retryCount < this.maxRetries && this.isDOMError(error)) {
+      this.retryCount++;
       setTimeout(() => {
-        if (this.isMounted) {
-          this.setState({ hasError: false, error: null });
-        }
-      }, 100);
-      return;
-    }
-
-    if (this.props.onError) {
-      this.props.onError(error, errorInfo);
+        this.setState({ hasError: false, error: undefined });
+      }, 1000 * this.retryCount);
     }
   }
+
+  private isDOMError(error: Error): boolean {
+    return error.message.includes('removeChild') ||
+           error.message.includes('appendChild') ||
+           error.message.includes('Node') ||
+           error.name === 'NotFoundError';
+  }
+
+  private handleRetry = () => {
+    this.retryCount = 0;
+    this.setState({ hasError: false, error: undefined });
+  };
 
   render() {
-    if (this.state.hasError && this.props.fallback) {
-      return this.props.fallback;
-    }
-
     if (this.state.hasError) {
+      if (this.props.fallback) {
+        return this.props.fallback;
+      }
+
       return (
-        <div style={{
-          padding: '10px',
-          border: '1px solid #ffeaa7',
-          backgroundColor: '#fff3cd',
-          borderRadius: '4px',
-          margin: '10px 0'
-        }}>
-          <p style={{ color: '#856404', margin: 0 }}>
-            Une erreur temporaire s'est produite. Rechargement en cours...
+        <div className="p-4 border border-red-200 rounded-md bg-red-50">
+          <h3 className="text-red-800 font-medium mb-2">Une erreur s'est produite</h3>
+          <p className="text-red-600 text-sm mb-3">
+            {this.state.error?.message || 'Erreur inconnue'}
           </p>
+          <button
+            onClick={this.handleRetry}
+            className="px-3 py-1 bg-red-600 text-white text-sm rounded hover:bg-red-700"
+          >
+            Réessayer
+          </button>
         </div>
       );
     }

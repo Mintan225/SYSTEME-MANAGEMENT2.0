@@ -68,7 +68,9 @@ class AuthService {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'Accept': 'application/json',
         },
+        credentials: 'include',
         body: JSON.stringify({
           username: username.trim(),
           password: password
@@ -77,18 +79,20 @@ class AuthService {
 
       if (!response.ok) {
         let errorMessage = 'Erreur de connexion';
+        
+        if (response.status === 401) {
+          errorMessage = 'Identifiants incorrects. Vérifiez votre nom d\'utilisateur et mot de passe.';
+        } else if (response.status === 500) {
+          errorMessage = 'Erreur serveur. Veuillez réessayer plus tard.';
+        } else if (response.status === 404) {
+          errorMessage = 'Service non disponible. Contactez l\'administrateur.';
+        }
+
         try {
           const error = await response.json();
           errorMessage = error.message || errorMessage;
         } catch (parseError) {
           console.error('Error parsing error response:', parseError);
-        }
-
-        // Dispatch custom error event for auth guard
-        if (typeof window !== 'undefined') {
-          window.dispatchEvent(new CustomEvent('apiError', {
-            detail: { status: response.status, message: errorMessage }
-          }));
         }
 
         throw new Error(errorMessage);
@@ -106,7 +110,9 @@ class AuthService {
 
       return data;
     } catch (error) {
-      console.error('Login error:', error);
+      if (error instanceof TypeError && error.message.includes('fetch')) {
+        throw new Error('Impossible de se connecter au serveur. Vérifiez votre connexion internet.');
+      }
       throw error;
     }
   }

@@ -437,7 +437,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/tables", authenticateToken, authorizePermission(["tables.create"]), async (req, res) => {
     try {
       console.log("[TABLE_CREATE_DEBUG] Request body received:", req.body);
-      
+
       // Validate required fields
       if (!req.body.number || !req.body.capacity) {
         console.log("[TABLE_CREATE_DEBUG] Missing required fields. number:", req.body.number, "capacity:", req.body.capacity);
@@ -454,20 +454,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
         qrCode: req.body.qrCode || `https://${req.headers.host}/table/${req.body.number}`,
         status: "available"
       };
-      
+
       console.log("[TABLE_CREATE_DEBUG] Raw table data:", rawTableData);
 
       // Validate with schema
       const tableData = insertTableSchema.parse(rawTableData);
       console.log("[TABLE_CREATE_DEBUG] Validated table data:", tableData);
-      
+
       const table = await storage.createTable(tableData);
       console.log("[TABLE_CREATE_DEBUG] Table created successfully:", table);
-      
+
       res.json(table);
     } catch (error) {
       console.error("[TABLE_CREATE_DEBUG] Error creating table:", error);
-      
+
       if (error instanceof Error) {
         // Check if it's a validation error
         if (error.message.includes('Expected') || error.message.includes('Invalid')) {
@@ -477,7 +477,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             details: "Please check that number and capacity are valid integers"
           });
         }
-        
+
         // Check if it's a duplicate key error
         if (error.message.includes('duplicate') || error.message.includes('unique')) {
           return res.status(409).json({ 
@@ -486,7 +486,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           });
         }
       }
-      
+
       res.status(500).json({ 
         message: "Failed to create table", 
         error: error instanceof Error ? error.message : String(error) 
@@ -579,17 +579,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.put("/api/orders/:id", authenticateToken, authorizePermission(["orders.edit", "orders.update_status"]), async (req, res) => {
     try {
       console.log(`[ORDER_UPDATE_DEBUG] Updating order ${req.params.id} with data:`, req.body);
-      
-      if (!req.body || Object.keys(req.body).length === 0) {
-        return res.status(400).json({ message: "Aucune donnée de mise à jour fournie." });
+
+      // Validate order ID
+      if (!req.params.id || isNaN(parseInt(req.params.id))) {
+        return res.status(400).json({ 
+          message: 'ID de commande invalide',
+          error: 'INVALID_ORDER_ID'
+        });
       }
+
+      // Validate required fields
+      if (!req.body || typeof req.body !== 'object') {
+        return res.status(400).json({ 
+          message: 'Données de commande manquantes ou invalides',
+          error: 'INVALID_REQUEST_BODY'
+        });
+      }
+
 
       // Validation plus flexible - on accepte les champs individuels
       let orderData: any = {};
-      
+
       // Validation manuelle des champs autorisés
       const allowedFields = ['status', 'paymentStatus', 'paymentMethod', 'total', 'notes', 'customerName', 'customerPhone'];
-      
+
       for (const field of allowedFields) {
         if (req.body[field] !== undefined) {
           orderData[field] = req.body[field];
@@ -667,7 +680,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(order);
     } catch (error) {
       console.error("Error updating order:", error);
-      
+
       // Gestion spécifique des erreurs de validation
       if (error instanceof Error) {
         if (error.message.includes("Invalid") || error.message.includes("Expected")) {
@@ -677,12 +690,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
             details: "Vérifiez que tous les champs ont des valeurs valides."
           });
         }
-        
+
         if (error.message.includes("not found")) {
           return res.status(404).json({ message: "Commande introuvable." });
         }
       }
-      
+
       res.status(500).json({ 
         message: "Erreur lors de la mise à jour de la commande",
         error: error instanceof Error ? error.message : String(error)

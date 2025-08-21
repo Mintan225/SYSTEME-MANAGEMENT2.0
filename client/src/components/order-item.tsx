@@ -9,6 +9,8 @@ import { format } from "date-fns";
 import { fr } from "date-fns/locale";
 import { downloadReceipt, type ReceiptData } from "@/lib/receipt-generator";
 import { Download } from "lucide-react";
+import React, { useState } from 'react';
+
 
 interface OrderItemProps {
   order: {
@@ -54,6 +56,8 @@ const paymentStatusConfig = {
 export function OrderItem({ order }: OrderItemProps) {
   const queryClient = useQueryClient();
   const { toast } = useToast();
+  const [isUpdating, setIsUpdating] = useState(false);
+
 
   const updateOrderMutation = useMutation({
     mutationFn: async ({ orderId, updates }: { orderId: number; updates: any }) => {
@@ -101,6 +105,9 @@ export function OrderItem({ order }: OrderItemProps) {
         variant: "destructive",
       });
     },
+    onSettled: () => {
+      setIsUpdating(false);
+    }
   });
 
   const handleStatusChange = (newStatus: string) => {

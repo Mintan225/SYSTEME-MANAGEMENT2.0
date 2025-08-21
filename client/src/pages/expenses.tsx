@@ -216,7 +216,7 @@ function ExpenseForm({ expense, onSuccess }: ExpenseFormProps) {
           Ajouter une dépense
         </Button>
       )}
-      
+
       {open && createPortal(
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white p-6 rounded-lg shadow-xl max-w-md w-full mx-4">
@@ -368,7 +368,7 @@ export default function Expenses() {
 
         const headers = authService.getAuthHeaders();
         let url = "/api/expenses";
-        
+
         if (start && end) {
           url += `?startDate=${encodeURIComponent(start)}&endDate=${encodeURIComponent(end)}`;
         }
@@ -439,14 +439,14 @@ export default function Expenses() {
 
     import('jspdf').then(({ default: jsPDF }) => {
       const doc = new jsPDF();
-      
+
       doc.setFontSize(20);
       doc.text('Rapport des Dépenses', 20, 20);
-      
+
       doc.setFontSize(12);
       doc.text(`Période: ${dateRange}`, 20, 35);
       doc.text(`Généré le: ${format(new Date(), "dd/MM/yyyy HH:mm", { locale: fr })}`, 20, 45);
-      
+
       const tableData = filteredExpenses.map((expense: any) => [
         format(new Date(expense.createdAt), "dd/MM/yyyy HH:mm", { locale: fr }),
         expense.description,
@@ -454,27 +454,27 @@ export default function Expenses() {
         expense.category,
         expense.receiptUrl ? "Oui" : "Non"
       ]);
-      
+
       const headers = ["Date", "Description", "Montant", "Catégorie", "Reçu"];
-      
+
       let yPos = 60;
-      
+
       doc.setFontSize(10);
       doc.setFont(undefined, 'bold');
       headers.forEach((header, i) => {
         doc.text(header, 20 + (i * 35), yPos);
       });
-      
+
       doc.line(20, yPos + 2, 190, yPos + 2);
       yPos += 10;
-      
+
       doc.setFont(undefined, 'normal');
       tableData.forEach((row, index) => {
         if (yPos > 270) {
           doc.addPage();
           yPos = 20;
         }
-        
+
         row.forEach((cell, i) => {
           const maxWidth = 30;
           const text = cell.length > 15 ? cell.substring(0, 15) + '...' : cell;
@@ -482,12 +482,12 @@ export default function Expenses() {
         });
         yPos += 8;
       });
-      
+
       const total = filteredExpenses.reduce((sum: number, expense: any) => sum + parseFloat(expense.amount), 0);
       yPos += 10;
       doc.setFont(undefined, 'bold');
       doc.text(`Total: ${total.toFixed(0)} FCFA`, 20, yPos);
-      
+
       doc.save(`depenses-${dateRange}-${format(new Date(), "yyyy-MM-dd")}.pdf`);
     });
   };

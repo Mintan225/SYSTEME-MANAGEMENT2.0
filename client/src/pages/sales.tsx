@@ -123,7 +123,7 @@ function SaleForm({ onSuccess }: { onSuccess?: () => void }) {
                   </p>
                 )}
               </div>
-              
+
               <div>
                 <Label htmlFor="paymentMethod">Méthode de paiement</Label>
                 <Select
@@ -325,51 +325,51 @@ export default function Sales() {
 
     import('jspdf').then(({ default: jsPDF }) => {
       const doc = new jsPDF();
-      
+
       doc.setFontSize(20);
       doc.text('Rapport des Ventes', 20, 20);
-      
+
       doc.setFontSize(12);
       doc.text(`Période: ${dateRange}`, 20, 35);
       doc.text(`Généré le: ${format(new Date(), "dd/MM/yyyy HH:mm", { locale: fr })}`, 20, 45);
-      
+
       const tableData = sales.map((sale: Sale) => [
         format(new Date(sale.createdAt), "dd/MM/yyyy HH:mm", { locale: fr }),
         `${parseFloat(sale.amount).toFixed(0)} FCFA`,
         getPaymentMethodLabel(sale.paymentMethod),
         sale.description || ""
       ]);
-      
+
       const headers = ["Date", "Montant", "Méthode", "Description"];
       let yPos = 60;
-      
+
       doc.setFontSize(10);
       doc.setFont('helvetica', 'bold');
       headers.forEach((header, i) => {
         doc.text(header, 20 + (i * 45), yPos);
       });
-      
+
       doc.line(20, yPos + 2, 190, yPos + 2);
       yPos += 10;
-      
+
       doc.setFont('helvetica', 'normal');
       tableData.forEach((row: string[]) => {
         if (yPos > 270) {
           doc.addPage();
           yPos = 20;
         }
-        
+
         row.forEach((cell, i) => {
           const text = cell.length > 20 ? cell.substring(0, 20) + '...' : cell;
           doc.text(text, 20 + (i * 45), yPos);
         });
         yPos += 8;
       });
-      
+
       yPos += 10;
       doc.setFont('helvetica', 'bold');
       doc.text(`Total: ${totalSales.toFixed(0)} FCFA`, 20, yPos);
-      
+
       doc.save(`ventes-${dateRange}-${format(new Date(), "yyyy-MM-dd")}.pdf`);
     });
   };
