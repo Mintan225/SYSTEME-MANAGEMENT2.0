@@ -289,17 +289,6 @@ function ExpenseForm({ expense, onSuccess }: ExpenseFormProps) {
                   </div>
 
                   <div className="flex justify-end space-x-2">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => setOpen(false)}
-            >
-              Annuler
-            </Button>
-            <Button type="submit" disabled={isLoading}>
-              {isLoading ? "Enregistrement..." : expense ? "Modifier" : "Ajouter"}
-            </Button>
-          <div className="flex justify-end space-x-2">
                 <Button
                   type="button"
                   variant="outline"
