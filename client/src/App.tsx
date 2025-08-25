@@ -119,13 +119,7 @@ function Router() {
       {/* Customer menu routes (public, no auth required) */}
       <Route path="/menu/:tableNumber" component={CustomerMenu} />
       <Route path="/table/:tableNumber">
-        {(params) => {
-          // Redirection automatique vers le menu
-          if (params?.tableNumber) {
-            window.location.href = `/menu/${params.tableNumber}`;
-          }
-          return null;
-        }}
+        {(params) => <Redirect to={`/menu/${params.tableNumber}`} />}
       </Route>
       <Route path="/notification-demo" component={NotificationDemo} />
 

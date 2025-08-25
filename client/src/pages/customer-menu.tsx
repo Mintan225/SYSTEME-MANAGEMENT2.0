@@ -58,6 +58,8 @@ export default function CustomerMenu() {
     enabled: !!tableNumber,
     retry: 3,
     retryDelay: 1000,
+    staleTime: 30000, // Cache les données pendant 30 secondes
+    refetchOnWindowFocus: false, // Évite les requêtes inutiles
     onError: (error) => {
       console.error("Error fetching menu data:", error);
     },

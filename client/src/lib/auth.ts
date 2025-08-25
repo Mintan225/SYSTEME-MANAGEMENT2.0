@@ -64,7 +64,7 @@ class AuthService {
     }
 
     try {
-      const response = await fetch('https://systeme-management2-0.onrender.com/api/auth/login', {
+      const response = await fetch('/api/auth/login', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
