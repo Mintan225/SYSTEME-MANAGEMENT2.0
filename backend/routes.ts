@@ -144,8 +144,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Servir les fichiers statiques depuis le dossier parent
-  app.use(express.static(path.join(process.cwd(), '..', 'public')));
+  // Servir les fichiers statiques depuis le dossier client/dist
+  app.use(express.static(path.join(process.cwd(), 'client', 'dist')));
+  app.use('/uploads', express.static(path.join(process.cwd(), 'public', 'uploads')));
 
   // Point de terminaison d'upload d'images pour les produits
   // Cette route doit être avant le middleware express.json()
@@ -1036,6 +1037,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error fetching sales by day:", error);
       res.status(500).json({ message: "Failed to fetch sales by day" });
+    }
+  });
+
+  // Route catch-all pour servir l'application React
+  app.get('*', (req, res) => {
+    const indexPath = path.join(process.cwd(), 'client', 'dist', 'index.html');
+    if (fs.existsSync(indexPath)) {
+      res.sendFile(indexPath);
+    } else {
+      res.status(404).send('Application not found. Please build the frontend first.');
     }
   });
 
