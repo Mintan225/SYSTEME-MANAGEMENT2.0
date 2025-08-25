@@ -1,4 +1,4 @@
-import { Switch, Route, Redirect } from "wouter";
+import { Switch, Route, Redirect, useParams } from "wouter";
 import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
@@ -27,6 +27,12 @@ import SuperAdminDashboard from "@/pages/super-admin-dashboard";
 import SuperAdminDataManagement from "@/pages/super-admin-data-management";
 import SystemConfig from "@/pages/system-config";
 import ErrorBoundary from "@/components/ErrorBoundary"; // Importez ErrorBoundary
+
+// Composant pour rediriger /table/:tableNumber vers /menu/:tableNumber
+function TableRedirect() {
+  const { tableNumber } = useParams();
+  return <Redirect to={`/menu/${tableNumber}`} />;
+}
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
@@ -118,9 +124,7 @@ function Router() {
 
       {/* Customer menu routes (public, no auth required) */}
       <Route path="/menu/:tableNumber" component={CustomerMenu} />
-      <Route path="/table/:tableNumber">
-        {(params) => <Redirect to={`/menu/${params.tableNumber}`} />}
-      </Route>
+      <Route path="/table/:tableNumber" component={TableRedirect} />
       <Route path="/notification-demo" component={NotificationDemo} />
 
 

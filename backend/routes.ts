@@ -476,9 +476,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Validate required fields
       if (!req.body.number || !req.body.capacity) {
         console.log("[TABLE_CREATE_DEBUG] Missing required fields. number:", req.body.number, "capacity:", req.body.capacity);
-        return res.status(400).json({ 
-          message: "Missing required fields", 
-          details: "Both 'number' and 'capacity' are required" 
+        return res.status(400).json({
+          message: "Missing required fields",
+          details: "Both 'number' and 'capacity' are required"
         });
       }
 
@@ -486,7 +486,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const rawTableData = {
         number: parseInt(req.body.number),
         capacity: parseInt(req.body.capacity),
-        qrCode: req.body.qrCode || `https://${req.headers.host}/table/${req.body.number}`,
+        qrCode: req.body.qrCode || `https://${req.headers.host}/menu/${req.body.number}`,
         status: "available"
       };
 
@@ -506,8 +506,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (error instanceof Error) {
         // Check if it's a validation error
         if (error.message.includes('Expected') || error.message.includes('Invalid')) {
-          return res.status(400).json({ 
-            message: "Validation error", 
+          return res.status(400).json({
+            message: "Validation error",
             error: error.message,
             details: "Please check that number and capacity are valid integers"
           });
@@ -515,16 +515,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
         // Check if it's a duplicate key error
         if (error.message.includes('duplicate') || error.message.includes('unique')) {
-          return res.status(409).json({ 
-            message: "Table number already exists", 
-            error: error.message 
+          return res.status(409).json({
+            message: "Table number already exists",
+            error: error.message
           });
         }
       }
 
-      res.status(500).json({ 
-        message: "Failed to create table", 
-        error: error instanceof Error ? error.message : String(error) 
+      res.status(500).json({
+        message: "Failed to create table",
+        error: error instanceof Error ? error.message : String(error)
       });
     }
   });
@@ -617,7 +617,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Validate order ID
       if (!req.params.id || isNaN(parseInt(req.params.id))) {
-        return res.status(400).json({ 
+        return res.status(400).json({
           message: 'ID de commande invalide',
           error: 'INVALID_ORDER_ID'
         });
@@ -625,7 +625,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Validate required fields
       if (!req.body || typeof req.body !== 'object') {
-        return res.status(400).json({ 
+        return res.status(400).json({
           message: 'Données de commande manquantes ou invalides',
           error: 'INVALID_REQUEST_BODY'
         });
@@ -719,8 +719,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Gestion spécifique des erreurs de validation
       if (error instanceof Error) {
         if (error.message.includes("Invalid") || error.message.includes("Expected")) {
-          return res.status(400).json({ 
-            message: "Données de commande invalides.", 
+          return res.status(400).json({
+            message: "Données de commande invalides.",
             error: error.message,
             details: "Vérifiez que tous les champs ont des valeurs valides."
           });
@@ -731,7 +731,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
 
-      res.status(500).json({ 
+      res.status(500).json({
         message: "Erreur lors de la mise à jour de la commande",
         error: error instanceof Error ? error.message : String(error)
       });
