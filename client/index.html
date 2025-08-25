@@ -1,48 +1,50 @@
-<!DOCTYPE html>
-<html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1" />
-  </head>
-  <body>
-    <div id="root"></div>
-    <script type="module" src="/src/main.tsx"></script>
-  </body>
-</html>sss
+
 <!DOCTYPE html>
 <html lang="fr">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Système de Gestion Restaurant</title>
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Restaurant Manager</title>
     <style>
-        body {
-            margin: 0;
-            padding: 0;
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            min-height: 100vh;
+        .loading {
             display: flex;
+            flex-direction: column;
             align-items: center;
             justify-content: center;
-        }
-        .loading {
-            text-align: center;
+            height: 100vh;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             color: white;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
         }
-        .loading .spinner {
+        .spinner {
             width: 50px;
             height: 50px;
-            border: 4px solid rgba(255,255,255,0.3);
-            border-top: 4px solid white;
+            border: 5px solid rgba(255,255,255,0.3);
             border-radius: 50%;
-            animation: spin 1s linear infinite;
-            margin: 0 auto 20px;
+            border-top-color: white;
+            animation: spin 1s ease-in-out infinite;
+            margin-bottom: 20px;
         }
         @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
+            to { transform: rotate(360deg); }
+        }
+        .error-state {
+            text-align: center;
+            color: #ff6b6b;
+        }
+        .retry-btn {
+            background: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 8px;
+            cursor: pointer;
+            margin-top: 20px;
+            font-weight: 500;
+            color: #333;
+            transition: transform 0.2s;
+        }
+        .retry-btn:hover {
+            transform: translateY(-2px);
         }
     </style>
 </head>
@@ -58,27 +60,41 @@
     <script type="module" src="/src/main.tsx"></script>
     
     <script>
-        // Fallback pour les routes
         window.addEventListener('DOMContentLoaded', () => {
-            // Si React ne se charge pas dans les 5 secondes, afficher un message d'erreur
-            setTimeout(() => {
-                if (document.querySelector('.loading')) {
-                    document.getElementById('root').innerHTML = `
-                        <div class="loading">
-                            <h2 style="color: #ff6b6b;">Erreur de chargement</h2>
+            // Si React ne se charge pas dans les 10 secondes, afficher un message d'erreur
+            const timeout = setTimeout(() => {
+                const loadingElement = document.querySelector('.loading');
+                if (loadingElement) {
+                    loadingElement.innerHTML = `
+                        <div class="error-state">
+                            <h2>Erreur de chargement</h2>
                             <p>L'application n'a pas pu se charger correctement.</p>
-                            <button onclick="window.location.reload()" style="
-                                background: white;
-                                border: none;
-                                padding: 10px 20px;
-                                border-radius: 5px;
-                                cursor: pointer;
-                                margin-top: 10px;
-                            ">Actualiser la page</button>
+                            <p>Veuillez vérifier votre connexion internet et réessayer.</p>
+                            <button class="retry-btn" onclick="window.location.reload()">
+                                Actualiser la page
+                            </button>
                         </div>
                     `;
                 }
             }, 10000);
+
+            // Clear timeout if app loads successfully
+            const observer = new MutationObserver((mutations) => {
+                mutations.forEach((mutation) => {
+                    if (mutation.type === 'childList') {
+                        const hasReactContent = document.querySelector('[data-reactroot], .App, main, nav');
+                        if (hasReactContent) {
+                            clearTimeout(timeout);
+                            observer.disconnect();
+                        }
+                    }
+                });
+            });
+
+            observer.observe(document.getElementById('root'), {
+                childList: true,
+                subtree: true
+            });
         });
     </script>
 </body>
