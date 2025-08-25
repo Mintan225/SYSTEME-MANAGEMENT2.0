@@ -145,8 +145,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Servir les fichiers statiques depuis le dossier client/dist
-  app.use(express.static(path.join(process.cwd(), 'client', 'dist')));
-  app.use('/uploads', express.static(path.join(process.cwd(), 'public', 'uploads')));
+  app.use(express.static(path.join(process.cwd(), '..', 'dist', 'public')));
+  app.use('/uploads', express.static(path.join(process.cwd(), '..', 'public', 'uploads')));
 
   // Point de terminaison d'upload d'images pour les produits
   // Cette route doit être avant le middleware express.json()
@@ -1042,12 +1042,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Route catch-all pour servir l'application React
   app.get('*', (req, res) => {
-    const indexPath = path.join(process.cwd(), 'client', 'dist', 'index.html');
-    if (fs.existsSync(indexPath)) {
-      res.sendFile(indexPath);
-    } else {
-      res.status(404).send('Application not found. Please build the frontend first.');
+    const possiblePaths = [
+      path.join(process.cwd(), '..', 'dist', 'public', 'index.html'),
+      path.join(process.cwd(), 'client', 'dist', 'index.html'),
+      path.join(process.cwd(), '..', 'public', 'index.html')
+    ];
+    
+    for (const indexPath of possiblePaths) {
+      if (fs.existsSync(indexPath)) {
+        return res.sendFile(indexPath);
+      }
     }
+    
+    res.status(404).send('Application not found. Please build the frontend first.');
   });
 
   // Middleware de gestion d'erreurs générique
