@@ -548,6 +548,54 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.delete("/api/tables/:id", authenticateToken, authorizePermission(["tables.delete"]), async (req, res) => {
+    try {
+      const success = await storage.deleteTable(Number(req.params.id));
+      if (!success) {
+        return res.status(404).json({ message: "Table not found" });
+      }
+      res.json({ message: "Table deleted successfully" });
+    } catch (error) {
+      console.error("Error deleting table:", error);
+      if (error instanceof Error && error.message.includes("has active orders")) {
+        return res.status(400).json({
+          message: "Cannot delete table with active orders",
+          error: error.message
+        });
+      }
+      res.status(500).json({
+        message: "Failed to delete table",
+        error: error instanceof Error ? error.message : String(error)
+      });
+    }
+  });
+
+  // Route pour régénérer tous les QR codes
+  app.put("/api/admin/regenerate-qr-codes", authenticateToken, authorizePermission(["tables.edit"]), async (req, res) => {
+    try {
+      const tables = await storage.getTables();
+      let updatedCount = 0;
+
+      for (const table of tables) {
+        // Générer la nouvelle URL QR avec le bon format
+        const newQrCode = `${req.protocol}://${req.get('host')}/table/${table.number}`;
+        
+        await storage.updateTable(table.id, {
+          qrCode: newQrCode
+        });
+        updatedCount++;
+      }
+
+      res.json({
+        message: "QR codes régénérés avec succès",
+        updated: updatedCount
+      });
+    } catch (error) {
+      console.error("Error regenerating QR codes:", error);
+      res.status(500).json({ message: "Failed to regenerate QR codes" });
+    }
+  });
+
   // Routes pour les commandes
   app.get("/api/orders", authenticateToken, authorizePermission(["orders.view"]), async (req, res) => {
     try {

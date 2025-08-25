@@ -453,7 +453,7 @@ export class DatabaseStorage implements IStorage {
       .orderBy(desc(expenses.createdAt));
   }
 
-  async getDeletedExpenses(): Promise<Expense[]> {
+  async getDeletedExpenses(): Promise<Expense[]>() {
     return await db.select().from(expenses)
       .where(isNotNull(expenses.deletedAt))
       .orderBy(desc(expenses.deletedAt));
