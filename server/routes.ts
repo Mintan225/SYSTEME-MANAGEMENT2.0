@@ -459,6 +459,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
     });
 
+    // Route pour régénérer tous les QR codes
+    app.put("/api/admin/regenerate-qr-codes", authenticateToken, authorizePermission(["tables.edit"]), async (req, res) => {
+        try {
+            const tables = await storage.getTables();
+            let updatedCount = 0;
+            
+            for (const table of tables) {
+                const correctQRData = `${req.protocol}://${req.get('host')}/table/${table.number}`;
+                await storage.updateTable(table.id, { qrCode: correctQRData });
+                updatedCount++;
+            }
+            
+            res.json({
+                message: "QR codes régénérés avec succès",
+                updated: updatedCount
+            });
+        } catch (error) {
+            console.error("Error regenerating QR codes:", error);
+            res.status(500).json({ message: "Failed to regenerate QR codes" });
+        }
+    });
+
     // Routes pour les tables
     app.get("/api/tables", authenticateToken, authorizePermission(["tables.view"]), async (req, res) => {
         try {
@@ -584,6 +606,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
             res.json(table);
         } catch (error) {
             res.status(500).json({ message: "Failed to update table" });
+        }
+    });
+
+    app.delete("/api/tables/:id", authenticateToken, authorizePermission(["tables.delete"]), async (req, res) => {
+        try {
+            const success = await storage.deleteTable(Number(req.params.id));
+            if (!success) {
+                return res.status(404).json({ message: "Table not found" });
+            }
+            res.json({ message: "Table deleted successfully" });
+        } catch (error) {
+            console.error("Error deleting table:", error);
+            res.status(500).json({ message: "Failed to delete table" });
         }
     });
 

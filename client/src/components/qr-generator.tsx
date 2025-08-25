@@ -3,7 +3,10 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { generateTableQRCode, downloadQRCode } from "@/lib/qr-utils";
-import { Download, QrCode } from "lucide-react";
+import { Download, QrCode, Trash2 } from "lucide-react";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import authService from "@/lib/auth";
+import { useToast } from "@/hooks/use-toast";
 
 interface Table {
   id: number;
@@ -20,6 +23,38 @@ interface QRGeneratorProps {
 export function QRGenerator({ table }: QRGeneratorProps) {
   const [qrCodeUrl, setQrCodeUrl] = useState<string>("");
   const [isGenerating, setIsGenerating] = useState(false);
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+
+  const deleteTableMutation = useMutation({
+    mutationFn: async (tableId: number) => {
+      const response = await fetch(`/api/tables/${tableId}`, {
+        method: "DELETE",
+        headers: authService.getAuthHeaders(),
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.message || "Failed to delete table");
+      }
+
+      return response.json();
+    },
+    onSuccess: () => {
+      toast({
+        title: "Succès",
+        description: "Table supprimée avec succès",
+      });
+      queryClient.invalidateQueries({ queryKey: ["/api/tables"] });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Erreur",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
 
   useEffect(() => {
     generateQR();
@@ -121,6 +156,15 @@ export function QRGenerator({ table }: QRGeneratorProps) {
             >
               <Download className="h-4 w-4 mr-1" />
               Télécharger
+            </Button>
+            <Button
+              size="sm"
+              variant="destructive"
+              onClick={() => deleteTableMutation.mutate(table.id)}
+              disabled={deleteTableMutation.isPending}
+            >
+              <Trash2 className="h-4 w-4 mr-1" />
+              Supprimer
             </Button>
           </div>
         </div>

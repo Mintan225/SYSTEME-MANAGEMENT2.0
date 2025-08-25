@@ -155,7 +155,7 @@ export class DatabaseStorage implements IStorage {
     const updateData = Object.fromEntries(
       Object.entries(userData).filter(([_, value]) => value !== undefined)
     );
-    
+
     const [updated] = await db.update(users)
       .set(updateData)
       .where(eq(users.id, id))
@@ -304,14 +304,14 @@ export class DatabaseStorage implements IStorage {
     const ordersData = await db.select().from(orders)
       .where(isNull(orders.deletedAt))
       .orderBy(desc(orders.createdAt));
-    
+
     const ordersWithItems = await Promise.all(
       ordersData.map(async (order) => {
         const items = await this.getOrderItems(order.id);
         return { ...order, orderItems: items };
       })
     );
-    
+
     return ordersWithItems;
   }
 
@@ -319,14 +319,14 @@ export class DatabaseStorage implements IStorage {
     const ordersData = await db.select().from(orders)
       .where(isNotNull(orders.deletedAt))
       .orderBy(desc(orders.deletedAt));
-    
+
     const ordersWithItems = await Promise.all(
       ordersData.map(async (order) => {
         const items = await this.getOrderItems(order.id);
         return { ...order, orderItems: items };
       })
     );
-    
+
     return ordersWithItems;
   }
 
@@ -337,14 +337,14 @@ export class DatabaseStorage implements IStorage {
         ne(orders.status, 'cancelled')
       ))
       .orderBy(desc(orders.createdAt));
-    
+
     const ordersWithItems = await Promise.all(
       activeOrdersData.map(async (order) => {
         const items = await this.getOrderItems(order.id);
         return { ...order, orderItems: items };
       })
     );
-    
+
     return ordersWithItems;
   }
 
@@ -376,7 +376,7 @@ export class DatabaseStorage implements IStorage {
     const updateData = Object.fromEntries(
       Object.entries(order).filter(([_, value]) => value !== undefined)
     );
-    
+
     const [updated] = await db.update(orders)
       .set(updateData)
       .where(eq(orders.id, id))
@@ -461,18 +461,21 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Expenses
+  async getExpenses(): Promise<Expense[]>;
   async getExpenses(): Promise<Expense[]> {
     return await db.select().from(expenses)
       .where(isNull(expenses.deletedAt))
       .orderBy(desc(expenses.createdAt));
   }
 
+  async getDeletedExpenses(): Promise<Expense[]>;
   async getDeletedExpenses(): Promise<Expense[]> {
     return await db.select().from(expenses)
       .where(isNotNull(expenses.deletedAt))
       .orderBy(desc(expenses.deletedAt));
   }
 
+  async getExpensesByDateRange(startDate: Date, endDate: Date): Promise<Expense[]>;
   async getExpensesByDateRange(startDate: Date, endDate: Date): Promise<Expense[]> {
     return await db.select().from(expenses)
       .where(and(
@@ -482,11 +485,13 @@ export class DatabaseStorage implements IStorage {
       .orderBy(desc(expenses.createdAt));
   }
 
+  async createExpense(expense: InsertExpense): Promise<Expense>;
   async createExpense(expense: InsertExpense): Promise<Expense> {
     const [newExpense] = await db.insert(expenses).values(expense).returning();
     return newExpense;
   }
 
+  async updateExpense(id: number, expense: Partial<InsertExpense>): Promise<Expense | undefined>;
   async updateExpense(id: number, expense: Partial<InsertExpense>): Promise<Expense | undefined> {
     const [updated] = await db.update(expenses)
       .set(expense)
@@ -495,6 +500,7 @@ export class DatabaseStorage implements IStorage {
     return updated || undefined;
   }
 
+  async deleteExpense(id: number): Promise<boolean>;
   async deleteExpense(id: number): Promise<boolean> {
     const result = await db.update(expenses)
       .set({ deletedAt: new Date() })
@@ -508,10 +514,16 @@ export class DatabaseStorage implements IStorage {
     date: Date;
     sales: number;
     orders: number;
+  }>>;
+  async getWeeklyStats(): Promise<Array<{
+    day: string;
+    date: Date;
+    sales: number;
+    orders: number;
   }>> {
     const now = new Date();
     const startOfWeek = new Date(now);
-    startOfWeek.setDate(now.getDate() - now.getDay() + 1); // Lundi
+    startOfWeek.setDate(now.getDay() - now.getDay() + 1); // Lundi
     startOfWeek.setHours(0, 0, 0, 0);
 
     const weeklyData = [];
@@ -520,7 +532,7 @@ export class DatabaseStorage implements IStorage {
     for (let i = 0; i < 7; i++) {
       const currentDay = new Date(startOfWeek);
       currentDay.setDate(startOfWeek.getDate() + i);
-      
+
       const nextDay = new Date(currentDay);
       nextDay.setDate(currentDay.getDate() + 1);
 
@@ -551,6 +563,12 @@ export class DatabaseStorage implements IStorage {
     return weeklyData;
   }
 
+  async getDailyStats(date: Date): Promise<{
+    totalSales: number;
+    totalExpenses: number;
+    profit: number;
+    orderCount: number;
+  }>;
   async getDailyStats(date: Date): Promise<{
     totalSales: number;
     totalExpenses: number;
@@ -602,6 +620,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Super Admin operations
+  async getSuperAdmin(id?: number): Promise<SuperAdmin | undefined>;
   async getSuperAdmin(id?: number): Promise<SuperAdmin | undefined> {
     if (id) {
       const [superAdmin] = await db.select().from(superAdmins).where(eq(superAdmins.id, id));
@@ -613,11 +632,13 @@ export class DatabaseStorage implements IStorage {
     }
   }
 
+  async getSuperAdminByUsername(username: string): Promise<SuperAdmin | undefined>;
   async getSuperAdminByUsername(username: string): Promise<SuperAdmin | undefined> {
     const [superAdmin] = await db.select().from(superAdmins).where(eq(superAdmins.username, username));
     return superAdmin;
   }
 
+  async createSuperAdmin(insertSuperAdmin: InsertSuperAdmin): Promise<SuperAdmin>;
   async createSuperAdmin(insertSuperAdmin: InsertSuperAdmin): Promise<SuperAdmin> {
     const [superAdmin] = await db
       .insert(superAdmins)
@@ -626,48 +647,49 @@ export class DatabaseStorage implements IStorage {
     return superAdmin;
   }
 
+  async resetAllData(): Promise<void>;
   async resetAllData(): Promise<void> {
     try {
       // Supprimer toutes les données dans l'ordre correct (en tenant compte des clés étrangères)
       console.log("🔄 Début de la réinitialisation complète du système...");
-      
+
       // D'abord supprimer les ventes qui référencent les commandes
       await db.delete(sales);
       console.log("✅ Ventes supprimées");
-      
+
       // Puis supprimer les items de commande qui référencent les commandes et produits
       await db.delete(orderItems);
       console.log("✅ Items de commande supprimés");
-      
+
       // Ensuite supprimer les commandes
       await db.delete(orders);
       console.log("✅ Commandes supprimées");
-      
+
       // Supprimer les dépenses
       await db.delete(expenses);
       console.log("✅ Dépenses supprimées");
-      
+
       // Supprimer les produits qui référencent les catégories
       await db.delete(products);
       console.log("✅ Produits supprimés");
-      
+
       // Supprimer les catégories
       await db.delete(categories);
       console.log("✅ Catégories supprimées");
-      
+
       // Supprimer les tables
       await db.delete(tables);
       console.log("✅ Tables supprimées");
-      
+
       // Supprimer les utilisateurs (sauf super admin)
       await db.delete(users);
       console.log("✅ Utilisateurs supprimés");
-      
+
       console.log("🎉 Réinitialisation système terminée avec succès !");
-      
+
       // Recréer les données de base essentielles
       console.log("🔄 Création des données de base...");
-      
+
       // Créer les catégories de base
       await db.insert(categories).values([
         { name: "Boissons", description: "Boissons chaudes et froides" },
@@ -675,12 +697,12 @@ export class DatabaseStorage implements IStorage {
         { name: "Desserts", description: "Desserts et sucreries" }
       ]);
       console.log("✅ Catégories de base créées");
-      
+
       // Créer les tables de base avec QR codes
       const baseUrl = process.env.REPLIT_DOMAINS ? 
         `https://${process.env.REPLIT_DOMAINS.split(',')[0]}` : 
         'http://localhost:5000';
-      
+
       await db.insert(tables).values([
         { number: 1, capacity: 4, qrCode: `${baseUrl}/menu/1` },
         { number: 2, capacity: 6, qrCode: `${baseUrl}/menu/2` },
@@ -689,12 +711,12 @@ export class DatabaseStorage implements IStorage {
         { number: 5, capacity: 4, qrCode: `${baseUrl}/menu/5` }
       ]);
       console.log("✅ Tables de base créées avec QR codes");
-      
+
     } catch (error) {
       console.error("❌ Erreur lors de la réinitialisation:", error);
       throw error;
     }
-    
+
     // Créer l'administrateur par défaut
     const hashedPassword = await bcrypt.hash("admin123", 10);
     await db.insert(users).values({
@@ -708,43 +730,51 @@ export class DatabaseStorage implements IStorage {
   }
 
   // System tabs management
+  async getSystemTabs(): Promise<SystemTab[]>;
   async getSystemTabs(): Promise<SystemTab[]> {
     return await db.select().from(systemTabs).orderBy(asc(systemTabs.order));
   }
 
+  async createSystemTab(tab: InsertSystemTab): Promise<SystemTab>;
   async createSystemTab(tab: InsertSystemTab): Promise<SystemTab> {
     const [systemTab] = await db.insert(systemTabs).values(tab).returning();
     return systemTab;
   }
 
+  async updateSystemTab(id: number, tab: Partial<InsertSystemTab>): Promise<SystemTab | undefined>;
   async updateSystemTab(id: number, tab: Partial<InsertSystemTab>): Promise<SystemTab | undefined> {
     const [systemTab] = await db.update(systemTabs).set(tab).where(eq(systemTabs.id, id)).returning();
     return systemTab;
   }
 
+  async deleteSystemTab(id: number): Promise<boolean>;
   async deleteSystemTab(id: number): Promise<boolean> {
     const result = await db.delete(systemTabs).where(eq(systemTabs.id, id));
     return result.rowCount! > 0;
   }
 
+  async toggleSystemTab(id: number): Promise<boolean>;
   async toggleSystemTab(id: number): Promise<boolean> {
     const tab = await db.select().from(systemTabs).where(eq(systemTabs.id, id)).limit(1);
     if (tab.length === 0) return false;
-    
+
     await db.update(systemTabs).set({ isActive: !tab[0].isActive }).where(eq(systemTabs.id, id));
     return true;
   }
 
   // System updates management
+  async getSystemUpdates(): Promise<SystemUpdate[]>;
   async getSystemUpdates(): Promise<SystemUpdate[]> {
     return await db.select().from(systemUpdates).orderBy(desc(systemUpdates.createdAt));
   }
 
+  async createSystemUpdate(update: InsertSystemUpdate): Promise<SystemUpdate>;
   async createSystemUpdate(update: InsertSystemUpdate): Promise<SystemUpdate> {
     const [systemUpdate] = await db.insert(systemUpdates).values(update).returning();
     return systemUpdate;
   }
 
+  async deploySystemUpdate(id: number): Promise<boolean>;
   async deploySystemUpdate(id: number): Promise<boolean> {
     const [systemUpdate] = await db.update(systemUpdates).set({ 
       isDeployed: true, 
@@ -754,20 +784,24 @@ export class DatabaseStorage implements IStorage {
   }
 
   // System settings management
+  async getSystemSettings(): Promise<SystemSetting[]>;
   async getSystemSettings(): Promise<SystemSetting[]> {
     return await db.select().from(systemSettings).orderBy(systemSettings.category, systemSettings.key);
   }
 
+  async getSystemSetting(key: string): Promise<SystemSetting | undefined>;
   async getSystemSetting(key: string): Promise<SystemSetting | undefined> {
     const [setting] = await db.select().from(systemSettings).where(eq(systemSettings.key, key));
     return setting;
   }
 
+  async createSystemSetting(setting: InsertSystemSetting): Promise<SystemSetting>;
   async createSystemSetting(setting: InsertSystemSetting): Promise<SystemSetting> {
     const [newSetting] = await db.insert(systemSettings).values(setting).returning();
     return newSetting;
   }
 
+  async updateSystemSetting(key: string, value: string): Promise<SystemSetting | undefined>;
   async updateSystemSetting(key: string, value: string): Promise<SystemSetting | undefined> {
     try {
       const [updated] = await db
@@ -778,7 +812,7 @@ export class DatabaseStorage implements IStorage {
         })
         .where(eq(systemSettings.key, key))
         .returning();
-      
+
       return updated;
     } catch (error) {
       console.error("Erreur lors de la mise à jour du paramètre:", error);

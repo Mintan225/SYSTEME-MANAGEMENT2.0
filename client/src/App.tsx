@@ -37,7 +37,7 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
     };
 
     checkAuth();
-    
+
     // Check auth status every time localStorage changes
     const handleStorageChange = () => {
       checkAuth();
@@ -98,11 +98,11 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
 
 function PublicRoute({ children }: { children: React.ReactNode }) {
   const isAuthenticated = authService.isAuthenticated();
-  
+
   if (isAuthenticated) {
     return <Redirect to="/dashboard" />;
   }
-  
+
   return <>{children}</>;
 }
 
@@ -115,7 +115,7 @@ function Router() {
           <Login />
         </PublicRoute>
       </Route>
-      
+
       {/* Customer menu routes (public, no auth required) */}
       <Route path="/menu/:tableNumber">
         {/* ENVELOPPEZ CUSTOMERMENU AVEC ERRORBOUNDARY ICI */}
@@ -123,7 +123,7 @@ function Router() {
           <CustomerMenu />
         </ErrorBoundary>
       </Route>
-      
+
       {/* QR Code route - redirects to menu */}
       <Route path="/table/:tableNumber">
         {(params) => <Redirect to={`/menu/${params.tableNumber}`} />}
@@ -133,19 +133,19 @@ function Router() {
       <Route path="/super-admin">
         <Redirect to="/super-admin/login" />
       </Route>
-      
+
       <Route path="/super-admin/login">
         <SuperAdminLogin />
       </Route>
-      
+
       <Route path="/super-admin/dashboard">
         <SuperAdminDashboard />
       </Route>
-      
+
       <Route path="/super-admin/data-management">
         <SuperAdminDataManagement />
       </Route>
-      
+
       <Route path="/super-admin/system-config">
         <SystemConfig />
       </Route>
@@ -156,43 +156,43 @@ function Router() {
           <Dashboard />
         </ProtectedRoute>
       </Route>
-      
+
       <Route path="/products">
         <ProtectedRoute>
           <Products />
         </ProtectedRoute>
       </Route>
-      
+
       <Route path="/orders">
         <ProtectedRoute>
           <Orders />
         </ProtectedRoute>
       </Route>
-      
+
       <Route path="/qr-codes">
         <ProtectedRoute>
           <QRCodes />
         </ProtectedRoute>
       </Route>
-      
+
       <Route path="/sales">
         <ProtectedRoute>
           <Sales />
         </ProtectedRoute>
       </Route>
-      
+
       <Route path="/expenses">
         <ProtectedRoute>
           <Expenses />
         </ProtectedRoute>
       </Route>
-      
+
       <Route path="/archives">
         <ProtectedRoute>
           <Archives />
         </ProtectedRoute>
       </Route>
-      
+
       <Route path="/settings">
         <ProtectedRoute>
           <Settings />
@@ -204,7 +204,7 @@ function Router() {
           <Config />
         </ProtectedRoute>
       </Route>
-      
+
       <Route path="/users">
         <ProtectedRoute>
           <Users />
