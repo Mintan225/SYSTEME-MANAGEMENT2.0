@@ -1,4 +1,4 @@
-import { 
+import {
   users, categories, products, tables, orders, orderItems, sales, expenses, superAdmins,
   systemTabs, systemUpdates, systemSettings,
   type User, type InsertUser, type Category, type InsertCategory,
@@ -10,7 +10,7 @@ import {
 } from "@shared/schema";
 import { DEFAULT_PERMISSIONS } from "@shared/permissions";
 import { db } from "./db";
-import { eq, desc, and, gte, lte, sum, ne, isNull, isNotNull } from "drizzle-orm";
+import { eq, desc, and, gte, lte, sum, ne, isNull, isNotNull, asc } from "drizzle-orm";
 import bcrypt from "bcrypt";
 
 export interface IStorage {
@@ -155,7 +155,7 @@ export class DatabaseStorage implements IStorage {
     const updateData = Object.fromEntries(
       Object.entries(userData).filter(([_, value]) => value !== undefined)
     );
-    
+
     const [updated] = await db.update(users)
       .set(updateData)
       .where(eq(users.id, id))
@@ -290,14 +290,14 @@ export class DatabaseStorage implements IStorage {
     const ordersData = await db.select().from(orders)
       .where(isNull(orders.deletedAt))
       .orderBy(desc(orders.createdAt));
-    
+
     const ordersWithItems = await Promise.all(
       ordersData.map(async (order) => {
         const items = await this.getOrderItems(order.id);
         return { ...order, orderItems: items };
       })
     );
-    
+
     return ordersWithItems;
   }
 
@@ -305,14 +305,14 @@ export class DatabaseStorage implements IStorage {
     const ordersData = await db.select().from(orders)
       .where(isNotNull(orders.deletedAt))
       .orderBy(desc(orders.deletedAt));
-    
+
     const ordersWithItems = await Promise.all(
       ordersData.map(async (order) => {
         const items = await this.getOrderItems(order.id);
         return { ...order, orderItems: items };
       })
     );
-    
+
     return ordersWithItems;
   }
 
@@ -323,14 +323,14 @@ export class DatabaseStorage implements IStorage {
         ne(orders.status, 'cancelled')
       ))
       .orderBy(desc(orders.createdAt));
-    
+
     const ordersWithItems = await Promise.all(
       activeOrdersData.map(async (order) => {
         const items = await this.getOrderItems(order.id);
         return { ...order, orderItems: items };
       })
     );
-    
+
     return ordersWithItems;
   }
 
@@ -362,7 +362,7 @@ export class DatabaseStorage implements IStorage {
     const updateData = Object.fromEntries(
       Object.entries(order).filter(([_, value]) => value !== undefined)
     );
-    
+
     const [updated] = await db.update(orders)
       .set(updateData)
       .where(eq(orders.id, id))
@@ -506,7 +506,7 @@ export class DatabaseStorage implements IStorage {
     for (let i = 0; i < 7; i++) {
       const currentDay = new Date(startOfWeek);
       currentDay.setDate(startOfWeek.getDate() + i);
-      
+
       const nextDay = new Date(currentDay);
       nextDay.setDate(currentDay.getDate() + 1);
 
@@ -610,44 +610,44 @@ export class DatabaseStorage implements IStorage {
     try {
       // Supprimer toutes les données dans l'ordre correct (en tenant compte des clés étrangères)
       console.log("🔄 Début de la réinitialisation complète du système...");
-      
+
       // D'abord supprimer les ventes qui référencent les commandes
       await db.delete(sales);
       console.log("✅ Ventes supprimées");
-      
+
       // Puis supprimer les items de commande qui référencent les commandes et produits
       await db.delete(orderItems);
       console.log("✅ Items de commande supprimés");
-      
+
       // Ensuite supprimer les commandes
       await db.delete(orders);
       console.log("✅ Commandes supprimées");
-      
+
       // Supprimer les dépenses
       await db.delete(expenses);
       console.log("✅ Dépenses supprimées");
-      
+
       // Supprimer les produits qui référencent les catégories
       await db.delete(products);
       console.log("✅ Produits supprimés");
-      
+
       // Supprimer les catégories
       await db.delete(categories);
       console.log("✅ Catégories supprimées");
-      
+
       // Supprimer les tables
       await db.delete(tables);
       console.log("✅ Tables supprimées");
-      
+
       // Supprimer les utilisateurs (sauf super admin)
       await db.delete(users);
       console.log("✅ Utilisateurs supprimés");
-      
+
       console.log("🎉 Réinitialisation système terminée avec succès !");
-      
+
       // Recréer les données de base essentielles
       console.log("🔄 Création des données de base...");
-      
+
       // Créer les catégories de base
       await db.insert(categories).values([
         { name: "Boissons", description: "Boissons chaudes et froides" },
@@ -655,12 +655,12 @@ export class DatabaseStorage implements IStorage {
         { name: "Desserts", description: "Desserts et sucreries" }
       ]);
       console.log("✅ Catégories de base créées");
-      
+
       // Créer les tables de base avec QR codes
-      const baseUrl = process.env.REPLIT_DOMAINS ? 
-        `https://${process.env.REPLIT_DOMAINS.split(',')[0]}` : 
+      const baseUrl = process.env.REPLIT_DOMAINS ?
+        `https://${process.env.REPLIT_DOMAINS.split(',')[0]}` :
         'http://localhost:5000';
-      
+
       await db.insert(tables).values([
         { number: 1, capacity: 4, qrCode: `${baseUrl}/menu/1` },
         { number: 2, capacity: 6, qrCode: `${baseUrl}/menu/2` },
@@ -669,12 +669,12 @@ export class DatabaseStorage implements IStorage {
         { number: 5, capacity: 4, qrCode: `${baseUrl}/menu/5` }
       ]);
       console.log("✅ Tables de base créées avec QR codes");
-      
+
     } catch (error) {
       console.error("❌ Erreur lors de la réinitialisation:", error);
       throw error;
     }
-    
+
     // Créer l'administrateur par défaut
     const hashedPassword = await bcrypt.hash("admin123", 10);
     await db.insert(users).values({
@@ -710,7 +710,7 @@ export class DatabaseStorage implements IStorage {
   async toggleSystemTab(id: number): Promise<boolean> {
     const tab = await db.select().from(systemTabs).where(eq(systemTabs.id, id)).limit(1);
     if (tab.length === 0) return false;
-    
+
     await db.update(systemTabs).set({ isActive: !tab[0].isActive }).where(eq(systemTabs.id, id));
     return true;
   }
@@ -726,9 +726,9 @@ export class DatabaseStorage implements IStorage {
   }
 
   async deploySystemUpdate(id: number): Promise<boolean> {
-    const [systemUpdate] = await db.update(systemUpdates).set({ 
-      isDeployed: true, 
-      deployedAt: new Date() 
+    const [systemUpdate] = await db.update(systemUpdates).set({
+      isDeployed: true,
+      deployedAt: new Date()
     }).where(eq(systemUpdates.id, id)).returning();
     return !!systemUpdate;
   }
@@ -752,13 +752,13 @@ export class DatabaseStorage implements IStorage {
     try {
       const [updated] = await db
         .update(systemSettings)
-        .set({ 
+        .set({
           value,
           updatedAt: new Date()
         })
         .where(eq(systemSettings.key, key))
         .returning();
-      
+
       return updated;
     } catch (error) {
       console.error("Erreur lors de la mise à jour du paramètre:", error);

@@ -117,20 +117,18 @@ function Router() {
       </Route>
 
       {/* Customer menu routes (public, no auth required) */}
-      <Route path="/menu/:tableNumber">
-        {/* ENVELOPPEZ CUSTOMERMENU AVEC ERRORBOUNDARY ICI */}
-        <ErrorBoundary>
-          <CustomerMenu />
-        </ErrorBoundary>
-      </Route>
-
-      {/* QR Code route - redirects to menu */}
+      <Route path="/menu/:tableNumber" component={CustomerMenu} />
       <Route path="/table/:tableNumber">
         {(params) => {
-          console.log("Table route accessed with params:", params);
-          return <Redirect to={`/menu/${params.tableNumber}`} />;
+          // Redirection automatique vers le menu
+          if (params?.tableNumber) {
+            window.location.href = `/menu/${params.tableNumber}`;
+          }
+          return null;
         }}
       </Route>
+      <Route path="/notification-demo" component={NotificationDemo} />
+
 
       {/* Super Admin routes (separate system) */}
       <Route path="/super-admin">
@@ -215,10 +213,6 @@ function Router() {
       </Route>
 
       {/* Redirect root to dashboard if authenticated, otherwise to login */}
-      <Route path="/notification-demo">
-        <NotificationDemo />
-      </Route>
-
       <Route path="/">
         {authService.isAuthenticated() ? (
           <Redirect to="/dashboard" />
