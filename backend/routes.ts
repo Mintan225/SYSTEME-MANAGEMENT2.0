@@ -110,6 +110,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
     });
   });
 
+  // Route de redirection pour les QR codes /table/X -> /menu/X
+  app.get("/table/:tableNumber", (req, res) => {
+    const tableNumber = req.params.tableNumber;
+    res.redirect(`/menu/${tableNumber}`);
+  });
+
   // Endpoint pour récupérer le menu d'une table spécifique (pour les QR codes)
   app.get("/api/menu/:tableNumber", async (req, res) => {
     try {
@@ -145,8 +151,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Servir les fichiers statiques depuis le dossier client/dist
-  app.use(express.static(path.join(process.cwd(), '..', 'dist', 'public')));
-  app.use('/uploads', express.static(path.join(process.cwd(), '..', 'public', 'uploads')));
+  app.use(express.static(path.join(process.cwd(), '..', 'client', 'dist')));
+  app.use('/uploads', express.static(path.join(process.cwd(), 'uploads')));
 
   // Point de terminaison d'upload d'images pour les produits
   // Cette route doit être avant le middleware express.json()
@@ -1042,18 +1048,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Route catch-all pour servir l'application React
   app.get('*', (req, res) => {
-    const possiblePaths = [
-      path.join(process.cwd(), '..', 'dist', 'public', 'index.html'),
-      path.join(process.cwd(), 'client', 'dist', 'index.html'),
-      path.join(process.cwd(), '..', 'public', 'index.html')
-    ];
+    const indexPath = path.join(process.cwd(), '..', 'client', 'dist', 'index.html');
     
-    for (const indexPath of possiblePaths) {
-      if (fs.existsSync(indexPath)) {
-        return res.sendFile(indexPath);
-      }
+    if (fs.existsSync(indexPath)) {
+      return res.sendFile(indexPath);
     }
     
+    console.log(`index.html not found at: ${indexPath}`);
     res.status(404).send('Application not found. Please build the frontend first.');
   });
 
