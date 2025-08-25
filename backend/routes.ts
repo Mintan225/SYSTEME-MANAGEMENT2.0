@@ -150,8 +150,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Servir les fichiers statiques depuis le dossier client/dist
-  app.use(express.static(path.join(process.cwd(), '..', 'client', 'dist')));
+  // Servir les fichiers statiques depuis le dossier dist/public
+  app.use(express.static(path.join(process.cwd(), '..', 'dist', 'public')));
   app.use('/uploads', express.static(path.join(process.cwd(), 'uploads')));
 
   // Point de terminaison d'upload d'images pour les produits
@@ -1048,7 +1048,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Route catch-all pour servir l'application React
   app.get('*', (req, res) => {
-    const indexPath = path.join(process.cwd(), '..', 'client', 'dist', 'index.html');
+    const indexPath = path.join(process.cwd(), '..', 'dist', 'public', 'index.html');
     
     if (fs.existsSync(indexPath)) {
       return res.sendFile(indexPath);
