@@ -101,6 +101,13 @@ function authorizePermission(requiredPermissions: string[]) {
     };
 }
 
+// Configuration des chemins statiques
+const staticPaths = [
+    path.join(process.cwd(), 'client'),
+    path.join(process.cwd(), 'frontend', 'dist'),
+    path.join(process.cwd(), 'public')
+];
+
 export async function registerRoutes(app: Express): Promise<Server> {
 
     // Health check endpoint for Railway
@@ -121,7 +128,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         path.join(process.cwd(), 'public'),
         path.join(process.cwd(), '..', 'public')
     ];
-    
+
     for (const staticPath of staticPaths) {
         if (fs.existsSync(staticPath)) {
             console.log(`Serving static files from: ${staticPath}`);
@@ -129,7 +136,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             break;
         }
     }
-    
+
     app.use(express.json());
 
     // Point de terminaison d'upload d'images pour les produits
@@ -240,7 +247,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
     });
 
-    
+
     // Route pour récupérer le menu d'une table spécifique (pour les QR codes)
     app.get("/api/menu/:tableNumber", async (req, res) => {
         try {
@@ -313,14 +320,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 return res.status(401).json({ message: "Identifiants invalides" });
             }
             console.log(`[LOGIN_DEBUG] Succès: Utilisateur "${username}" trouvé dans la base de données. ID: ${user.id}, Rôle: ${user.role}`);
-            
-            const isValidPassword = await bcrypt.compare(password, user.password); 
+
+            const isValidPassword = await bcrypt.compare(password, user.password);
             if (!isValidPassword) {
                 console.log(`[LOGIN_DEBUG] Failure: Incorrect password for user "${username}".`);
                 return res.status(401).json({ message: "Invalid credentials" });
             }
             console.log(`[LOGIN_DEBUG] Success: Password is correct for user "${username}".`);
-            
+
             const token = jwt.sign(
                 { id: user.id, username: user.username, role: user.role, permissions: user.permissions },
                 APP_CONFIG.SECURITY.JWT_SECRET,
@@ -464,13 +471,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
         try {
             const tables = await storage.getTables();
             let updatedCount = 0;
-            
+
             for (const table of tables) {
                 const correctQRData = `${req.protocol}://${req.get('host')}/menu/${table.number}`;
                 await storage.updateTable(table.id, { qrCode: correctQRData });
                 updatedCount++;
             }
-            
+
             res.json({
                 message: "QR codes régénérés avec succès",
                 updated: updatedCount
@@ -507,7 +514,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         try {
             console.log("[TABLE_CREATE_DEBUG] Request body received:", JSON.stringify(req.body));
             console.log("[TABLE_CREATE_DEBUG] Headers:", req.headers);
-            
+
             // Check for required fields first
             if (!req.body.number || !req.body.capacity) {
                 console.log("[TABLE_CREATE_DEBUG] Missing required fields:", {
@@ -522,11 +529,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
             }
 
             const { number, capacity } = req.body;
-            
+
             // Parse integers with error checking
             const parsedNumber = parseInt(number);
             const parsedCapacity = parseInt(capacity);
-            
+
             if (isNaN(parsedNumber) || isNaN(parsedCapacity)) {
                 console.log("[TABLE_CREATE_DEBUG] Invalid number format:", {
                     number: number,
@@ -539,16 +546,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
                     details: "Number and capacity must be valid integers"
                 });
             }
-            
+
             const tableData = {
                 number: parsedNumber,
                 capacity: parsedCapacity,
                 qrCode: req.body.qrCode || `https://${req.headers.host}/menu/${parsedNumber}`,
                 status: "available"
             };
-            
+
             console.log("[TABLE_CREATE_DEBUG] Data to validate:", JSON.stringify(tableData));
-            
+
             // Use safeParse for better error handling
             const parsedData = insertTableSchema.safeParse(tableData);
             if (!parsedData.success) {
@@ -559,17 +566,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
                     details: "Please check that all fields are properly formatted"
                 });
             }
-            
+
             console.log("[TABLE_CREATE_DEBUG] Schema validation passed:", JSON.stringify(parsedData.data));
-            
+
             // Create table with validated data
             const table = await storage.createTable(parsedData.data);
             console.log("[TABLE_CREATE_DEBUG] Table created successfully:", table);
-            
+
             res.json(table);
         } catch (error) {
             console.error("[TABLE_CREATE_DEBUG] Error creating table:", error);
-            
+
             // Handle specific error types
             if (error instanceof Error) {
                 // Check for duplicate key constraint
@@ -579,7 +586,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
                         error: "A table with this number already exists in the system"
                     });
                 }
-                
+
                 // Check for database constraint errors
                 if (error.message.includes('constraint') || error.message.includes('violates')) {
                     return res.status(400).json({
@@ -588,7 +595,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
                     });
                 }
             }
-            
+
             res.status(500).json({
                 message: "Failed to create table",
                 error: error instanceof Error ? error.message : String(error)
@@ -700,9 +707,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
             if (Object.keys(req.body).length === 0) {
                 return res.status(400).json({ message: "Aucune donnée de mise à jour fournie." });
             }
-            
+
             console.log("[ORDER_UPDATE_DEBUG] Request body:", JSON.stringify(req.body));
-            
+
             // Parse with error handling
             let orderData;
             try {
@@ -844,7 +851,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     app.post("/api/sales", authenticateToken, authorizePermission(["sales.create"]), async (req, res) => {
         try {
             console.log("[SALE_CREATE_DEBUG] Request body received:", JSON.stringify(req.body));
-            
+
             // Check for required fields first
             if (!req.body.amount || !req.body.paymentMethod) {
                 console.log("[SALE_CREATE_DEBUG] Missing required fields:", {
@@ -870,7 +877,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
                     details: "Le montant doit être un nombre positif"
                 });
             }
-            
+
             // Prepare data for validation
             const saleData = {
                 amount: parsedAmount.toString(), // Convert to string as expected by schema
@@ -878,9 +885,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 description: req.body.description ? String(req.body.description).trim() : undefined,
                 orderId: req.body.orderId ? Number(req.body.orderId) : undefined
             };
-            
+
             console.log("[SALE_CREATE_DEBUG] Data to validate:", JSON.stringify(saleData));
-            
+
             // Use safeParse for better error handling
             const parsedData = insertSaleSchema.safeParse(saleData);
             if (!parsedData.success) {
@@ -891,17 +898,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
                     details: "Veuillez vérifier le format des données"
                 });
             }
-            
+
             console.log("[SALE_CREATE_DEBUG] Schema validation passed:", JSON.stringify(parsedData.data));
-            
+
             // Create sale with validated data
             const sale = await storage.createSale(parsedData.data);
             console.log("[SALE_CREATE_DEBUG] Sale created successfully:", sale);
-            
+
             res.json(sale);
         } catch (error) {
             console.error("[SALE_CREATE_DEBUG] Error creating sale:", error);
-            
+
             // Handle specific error types
             if (error instanceof Error) {
                 // Check for database constraint errors
@@ -911,7 +918,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
                         error: error.message
                     });
                 }
-                
+
                 // Check for connection errors
                 if (error.message.includes('connection') || error.message.includes('connect')) {
                     return res.status(503).json({
@@ -920,7 +927,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
                     });
                 }
             }
-            
+
             res.status(500).json({
                 message: "Échec de la création de la vente",
                 error: error instanceof Error ? error.message : String(error)
@@ -1008,7 +1015,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     app.post("/api/expenses", authenticateToken, authorizePermission(["expenses.create"]), async (req, res) => {
         try {
             console.log("[EXPENSE_CREATE_DEBUG] Request body received:", JSON.stringify(req.body));
-            
+
             // Check for required fields first
             if (!req.body.description || !req.body.amount || !req.body.category) {
                 console.log("[EXPENSE_CREATE_DEBUG] Missing required fields:", {
@@ -1035,7 +1042,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
                     details: "Amount must be a positive number"
                 });
             }
-            
+
             // Prepare data for validation - convert amount to string as expected by schema
             const expenseData = {
                 description: String(req.body.description).trim(),
@@ -1043,9 +1050,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 category: String(req.body.category).trim(),
                 receiptUrl: req.body.receiptUrl ? String(req.body.receiptUrl).trim() : undefined
             };
-            
+
             console.log("[EXPENSE_CREATE_DEBUG] Data to validate:", JSON.stringify(expenseData));
-            
+
             // Use safeParse for better error handling
             const parsedData = insertExpenseSchema.safeParse(expenseData);
             if (!parsedData.success) {
@@ -1056,17 +1063,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
                     details: "Please check that all fields are properly formatted"
                 });
             }
-            
+
             console.log("[EXPENSE_CREATE_DEBUG] Schema validation passed:", JSON.stringify(parsedData.data));
-            
+
             // Create expense with validated data
             const expense = await storage.createExpense(parsedData.data);
             console.log("[EXPENSE_CREATE_DEBUG] Expense created successfully:", expense);
-            
+
             res.json(expense);
         } catch (error) {
             console.error("[EXPENSE_CREATE_DEBUG] Error creating expense:", error);
-            
+
             // Handle specific error types
             if (error instanceof Error) {
                 // Check for database constraint errors
@@ -1076,7 +1083,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
                         error: error.message
                     });
                 }
-                
+
                 // Check for connection errors
                 if (error.message.includes('connection') || error.message.includes('connect')) {
                     return res.status(503).json({
@@ -1085,7 +1092,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
                     });
                 }
             }
-            
+
             res.status(500).json({
                 message: "Failed to create expense",
                 error: error instanceof Error ? error.message : String(error)
@@ -1171,7 +1178,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             res.status(500).json({ message: "Failed to update payment methods" });
         }
     });
-    
+
     // Catch-all route for SPA
     app.get("/*", (req, res) => {
         // Try different possible paths for index.html
@@ -1181,10 +1188,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
             path.join(process.cwd(), '..', 'public', 'index.html'),
             path.join(__dirname, '..', 'public', 'index.html')
         ];
-        
+
         let filePath = null;
         let pathFound = false;
-        
+
         try {
             // Test each path synchronously
             for (const possiblePath of possiblePaths) {
@@ -1201,7 +1208,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         } catch (error) {
             console.error('Error checking file paths:', error);
         }
-        
+
         if (pathFound && filePath) {
             res.sendFile(path.resolve(filePath));
         } else {

@@ -9,3 +9,77 @@
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>sss
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Système de Gestion Restaurant</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .loading {
+            text-align: center;
+            color: white;
+        }
+        .loading .spinner {
+            width: 50px;
+            height: 50px;
+            border: 4px solid rgba(255,255,255,0.3);
+            border-top: 4px solid white;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 20px;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <div id="root">
+        <div class="loading">
+            <div class="spinner"></div>
+            <h2>Chargement de l'application...</h2>
+            <p>Veuillez patienter pendant que l'application se charge.</p>
+        </div>
+    </div>
+    
+    <script type="module" src="/src/main.tsx"></script>
+    
+    <script>
+        // Fallback pour les routes
+        window.addEventListener('DOMContentLoaded', () => {
+            // Si React ne se charge pas dans les 5 secondes, afficher un message d'erreur
+            setTimeout(() => {
+                if (document.querySelector('.loading')) {
+                    document.getElementById('root').innerHTML = `
+                        <div class="loading">
+                            <h2 style="color: #ff6b6b;">Erreur de chargement</h2>
+                            <p>L'application n'a pas pu se charger correctement.</p>
+                            <button onclick="window.location.reload()" style="
+                                background: white;
+                                border: none;
+                                padding: 10px 20px;
+                                border-radius: 5px;
+                                cursor: pointer;
+                                margin-top: 10px;
+                            ">Actualiser la page</button>
+                        </div>
+                    `;
+                }
+            }, 10000);
+        });
+    </script>
+</body>
+</html>
