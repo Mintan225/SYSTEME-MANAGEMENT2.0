@@ -281,8 +281,26 @@ export class DatabaseStorage implements IStorage {
   }
 
   async deleteTable(id: number): Promise<boolean> {
-    const result = await db.delete(tables).where(eq(tables.id, id));
-    return (result.rowCount ?? 0) > 0;
+    try {
+      // Vérifier si la table a des commandes actives
+      const activeOrders = await db.select().from(orders)
+        .where(and(
+          eq(orders.tableId, id),
+          ne(orders.status, 'completed'),
+          ne(orders.status, 'cancelled'),
+          isNull(orders.deletedAt)
+        ));
+
+      if (activeOrders.length > 0) {
+        throw new Error("Cannot delete table with active orders");
+      }
+
+      const result = await db.delete(tables).where(eq(tables.id, id));
+      return (result.rowCount ?? 0) > 0;
+    } catch (error) {
+      console.error("Error deleting table:", error);
+      throw error;
+    }
   }
 
   // Orders
@@ -453,7 +471,7 @@ export class DatabaseStorage implements IStorage {
       .orderBy(desc(expenses.createdAt));
   }
 
-  async getDeletedExpenses(): Promise<Expense[]>() {
+  async getDeletedExpenses(): Promise<Expense[]> {
     return await db.select().from(expenses)
       .where(isNotNull(expenses.deletedAt))
       .orderBy(desc(expenses.deletedAt));
