@@ -466,7 +466,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             let updatedCount = 0;
             
             for (const table of tables) {
-                const correctQRData = `${req.protocol}://${req.get('host')}/table/${table.number}`;
+                const correctQRData = `${req.protocol}://${req.get('host')}/menu/${table.number}`;
                 await storage.updateTable(table.id, { qrCode: correctQRData });
                 updatedCount++;
             }
@@ -543,7 +543,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             const tableData = {
                 number: parsedNumber,
                 capacity: parsedCapacity,
-                qrCode: req.body.qrCode || `https://${req.headers.host}/table/${parsedNumber}`,
+                qrCode: req.body.qrCode || `https://${req.headers.host}/menu/${parsedNumber}`,
                 status: "available"
             };
             

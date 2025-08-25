@@ -126,7 +126,10 @@ function Router() {
 
       {/* QR Code route - redirects to menu */}
       <Route path="/table/:tableNumber">
-        {(params) => <Redirect to={`/menu/${params.tableNumber}`} />}
+        {(params) => {
+          console.log("Table route accessed with params:", params);
+          return <Redirect to={`/menu/${params.tableNumber}`} />;
+        }}
       </Route>
 
       {/* Super Admin routes (separate system) */}

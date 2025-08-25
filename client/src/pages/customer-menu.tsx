@@ -53,9 +53,17 @@ export default function CustomerMenu() {
   const { toast } = useToast();
   const { notifications, removeNotification } = useOrderNotifications(parseInt(tableNumber || "0"), customerName, customerPhone);
 
-  const { data: menuData, isLoading } = useQuery({
+  const { data: menuData, isLoading, error } = useQuery({
     queryKey: [`/api/menu/${tableNumber}`],
     enabled: !!tableNumber,
+    retry: 3,
+    retryDelay: 1000,
+    onError: (error) => {
+      console.error("Error fetching menu data:", error);
+    },
+    onSuccess: (data) => {
+      console.log("Menu data loaded successfully:", data);
+    }
   });
 
   const orderMutation = useMutation({
@@ -100,16 +108,17 @@ export default function CustomerMenu() {
   });
 
   // --- EARLY RETURNS POUR LES CAS D'ERREUR OU DE CHARGEMENT INITIAUX (CEUX-CI SONT CORRECTS) ---
-  if (!tableNumber) {
+  if (!tableNumber || isNaN(parseInt(tableNumber))) {
+    console.log("Invalid table number:", tableNumber);
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
         <Card className="w-full max-w-md mx-4">
           <CardContent className="pt-6 text-center">
             <h1 className="text-xl font-bold text-gray-900 mb-2">
-              Numéro de table manquant
+              Numéro de table invalide
             </h1>
             <p className="text-gray-600">
-              Veuillez scanner le QR code de votre table.
+              Le numéro de table "{tableNumber}" n'est pas valide. Veuillez scanner le QR code de votre table.
             </p>
           </CardContent>
         </Card>
@@ -128,6 +137,27 @@ export default function CustomerMenu() {
     );
   }
 
+  if (error) {
+    console.error("Menu query error:", error);
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <Card className="w-full max-w-md mx-4">
+          <CardContent className="pt-6 text-center">
+            <h1 className="text-xl font-bold text-gray-900 mb-2">
+              Erreur de connexion
+            </h1>
+            <p className="text-gray-600 mb-4">
+              Impossible de charger le menu. Vérifiez votre connexion.
+            </p>
+            <Button onClick={() => window.location.reload()}>
+              Réessayer
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
   if (!menuData) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
@@ -137,7 +167,7 @@ export default function CustomerMenu() {
               Table non trouvée
             </h1>
             <p className="text-gray-600">
-              Cette table n'existe pas ou n'est pas disponible.
+              La table numéro {tableNumber} n'existe pas ou n'est pas disponible.
             </p>
           </CardContent>
         </Card>

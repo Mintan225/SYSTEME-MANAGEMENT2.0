@@ -33,8 +33,8 @@ export async function generateQRCode(
 }
 
 export function generateTableQRData(tableNumber: number, baseUrl?: string): string {
-  // Utilise toujours le format /table/ pour la cohérence avec les routes
-  const url = baseUrl || `${window.location.origin}/table/${tableNumber}`;
+  // Utilise le format /menu/ directement pour éviter les redirections
+  const url = baseUrl || `${window.location.origin}/menu/${tableNumber}`;
   return url;
 }
 
