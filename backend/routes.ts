@@ -113,6 +113,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Route de redirection pour les QR codes /table/X -> /menu/X
   app.get("/table/:tableNumber", (req, res) => {
     const tableNumber = req.params.tableNumber;
+    // Servir directement l'application React au lieu de faire une redirection
+    const indexPath = path.join(process.cwd(), '..', 'dist', 'public', 'index.html');
+    
+    if (fs.existsSync(indexPath)) {
+      return res.sendFile(indexPath);
+    }
+    
+    // Fallback: redirection si le fichier n'existe pas
     res.redirect(`/menu/${tableNumber}`);
   });
 
@@ -1122,6 +1130,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Route catch-all pour servir l'application React
   app.get('*', (req, res) => {
+    // Skip API routes
+    if (req.path.startsWith('/api/')) {
+      return res.status(404).json({ message: 'API endpoint not found' });
+    }
+
     const indexPath = path.join(process.cwd(), '..', 'dist', 'public', 'index.html');
 
     if (fs.existsSync(indexPath)) {
