@@ -1,66 +1,54 @@
-
 import { useState, useEffect } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { generateTableQRCode, downloadQRCode } from "@/lib/qr-utils";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { QrCode, Download, Trash2 } from "lucide-react";
+import { generateTableQRCode, downloadQRCode } from "@/lib/qr-utils";
 import { useToast } from "@/hooks/use-toast";
 import authService from "@/lib/auth";
-
-interface Table {
-  id: number;
-  number: number;
-  capacity: number;
-  status: string;
-  qrCode: string;
-}
+import { Download, Trash2, QrCode } from "lucide-react";
+import type { Table } from "@shared/schema";
 
 interface QRGeneratorProps {
   table: Table;
-  onDelete: (id: number) => void;
 }
 
-export function QRGenerator({ table, onDelete }: QRGeneratorProps) {
+export function QRGenerator({ table }: QRGeneratorProps) {
   const [qrCodeUrl, setQrCodeUrl] = useState<string>("");
+  const [isGenerating, setIsGenerating] = useState(false);
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  useEffect(() => {
-    if (table.qrCode) {
-      generateTableQRCode(table.qrCode)
-        .then(setQrCodeUrl)
-        .catch((error) => {
-          console.error("Error generating QR code:", error);
-          toast({
-            title: "Erreur",
-            description: "Impossible de générer le code QR",
-            variant: "destructive",
-          });
-        });
+  const generateQR = async () => {
+    setIsGenerating(true);
+    try {
+      const qrUrl = await generateTableQRCode(table.number);
+      setQrCodeUrl(qrUrl);
+    } catch (error) {
+      console.error("Error generating QR code:", error);
+      toast({
+        title: "Erreur",
+        description: "Impossible de générer le code QR",
+        variant: "destructive",
+      });
+    } finally {
+      setIsGenerating(false);
     }
-  }, [table.qrCode, toast]);
+  };
+
+  useEffect(() => {
+    generateQR();
+  }, [table.number]);
 
   const deleteMutation = useMutation({
     mutationFn: async (id: number) => {
-      const token = authService.getToken();
-      if (!token) {
-        throw new Error("Token non trouvé");
-      }
-
       const response = await fetch(`/api/tables/${id}`, {
         method: "DELETE",
-        headers: {
-          "Authorization": `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
+        headers: authService.getAuthHeaders(),
       });
 
       if (!response.ok) {
-        const errorData = await response.text();
-        console.error("Delete response:", response.status, errorData);
-        throw new Error(`Erreur ${response.status}: ${errorData}`);
+        const errorData = await response.json();
+        throw new Error(errorData.message || "Erreur lors de la suppression");
       }
 
       return response.json();
@@ -70,14 +58,12 @@ export function QRGenerator({ table, onDelete }: QRGeneratorProps) {
         title: "Succès",
         description: "Table supprimée avec succès",
       });
-      queryClient.invalidateQueries({ queryKey: ["tables"] });
-      onDelete(table.id);
+      queryClient.invalidateQueries({ queryKey: ["/api/tables"] });
     },
-    onError: (error) => {
-      console.error("Error deleting table:", error);
+    onError: (error: Error) => {
       toast({
         title: "Erreur",
-        description: error.message || "Erreur lors de la suppression",
+        description: error.message,
         variant: "destructive",
       });
     },
@@ -86,6 +72,10 @@ export function QRGenerator({ table, onDelete }: QRGeneratorProps) {
   const handleDownload = () => {
     if (qrCodeUrl) {
       downloadQRCode(qrCodeUrl, `table-${table.number}-qr.png`);
+      toast({
+        title: "Succès",
+        description: "QR code téléchargé",
+      });
     }
   };
 
@@ -96,49 +86,65 @@ export function QRGenerator({ table, onDelete }: QRGeneratorProps) {
   };
 
   return (
-    <Card className="w-full">
-      <CardHeader>
-        <CardTitle className="flex items-center justify-between">
-          <span>Table {table.number}</span>
-          <div className="flex items-center gap-2">
-            <Badge variant={table.status === "available" ? "default" : "secondary"}>
-              {table.status === "available" ? "Disponible" : "Occupée"}
-            </Badge>
-            <span className="text-sm text-muted-foreground">
-              {table.capacity} places
-            </span>
-          </div>
+    <Card className="w-full max-w-sm">
+      <CardHeader className="pb-3">
+        <CardTitle className="text-center text-lg">
+          Table {table.number}
         </CardTitle>
+        <p className="text-sm text-gray-500 text-center">
+          Capacité: {table.capacity} personnes
+        </p>
+        <p className="text-xs text-blue-600 text-center break-all">
+          {table.qrCode}
+        </p>
       </CardHeader>
       <CardContent className="space-y-4">
-        {qrCodeUrl && (
+        {qrCodeUrl ? (
           <div className="flex justify-center">
-            <img
-              src={qrCodeUrl}
-              alt={`QR Code pour table ${table.number}`}
-              className="w-48 h-48 border rounded"
+            <img 
+              src={qrCodeUrl} 
+              alt={`QR Code Table ${table.number}`}
+              className="w-32 h-32 border rounded-md"
             />
           </div>
+        ) : (
+          <div className="flex justify-center">
+            <div className="w-32 h-32 bg-gray-100 border rounded-md flex items-center justify-center">
+              <QrCode className="w-8 h-8 text-gray-400" />
+            </div>
+          </div>
         )}
-        
-        <div className="text-sm text-muted-foreground text-center">
-          <p>URL: {table.qrCode}</p>
-        </div>
 
-        <div className="flex gap-2 justify-center">
-          <Button onClick={handleDownload} disabled={!qrCodeUrl} size="sm">
-            <Download className="w-4 h-4 mr-2" />
-            Télécharger
-          </Button>
-          
+        <div className="flex flex-col space-y-2">
+          <div className="flex space-x-2">
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={generateQR}
+              disabled={isGenerating}
+            >
+              <QrCode className="h-4 w-4 mr-1" />
+              Régénérer
+            </Button>
+            <Button
+              size="sm"
+              onClick={handleDownload}
+              disabled={!qrCodeUrl || isGenerating}
+            >
+              <Download className="h-4 w-4 mr-1" />
+              Télécharger
+            </Button>
+          </div>
+
           <Button
             onClick={handleDelete}
             disabled={deleteMutation.isPending}
             variant="destructive"
             size="sm"
+            className="w-full"
           >
             <Trash2 className="w-4 h-4 mr-2" />
-            {deleteMutation.isPending ? "Suppression..." : "Supprimer"}
+            {deleteMutation.isPending ? "Suppression..." : "Supprimer la table"}
           </Button>
         </div>
       </CardContent>
