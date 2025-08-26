@@ -12,7 +12,7 @@ export const users = pgTable("users", {
   email: text("email"),
   phone: text("phone"),
   role: text("role").notNull().default("employee"),
-  permissions: jsonb("permissions").$type<string[]>().notNull().default(sql`'[]'::jsonb`), // Stocke un tableau JSON vide par défaut
+  permissions: jsonb("permissions").$type<string[]>().notNull().default(sql`'[]'::jsonb`),
   isActive: boolean("is_active").notNull().default(true),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   createdBy: integer("created_by").references(() => users.id),
@@ -55,14 +55,14 @@ export const tables = pgTable("tables", {
   number: integer("number").notNull().unique(),
   capacity: integer("capacity").notNull().default(4),
   qrCode: text("qr_code").notNull(),
-  status: text("status").notNull().default("available"), // available, occupied, reserved
+  status: text("status").notNull().default("available"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
 export const orders = pgTable("orders", {
   id: serial("id").primaryKey(),
   tableId: integer("table_id")
-    .references(() => tables.id, { onDelete: "cascade" }), // <-- Mise à jour 1
+    .references(() => tables.id, { onDelete: "cascade" }),
   customerName: text("customer_name"),
   customerPhone: text("customer_phone"),
   status: text("status").notNull().default("pending"),
@@ -78,10 +78,10 @@ export const orders = pgTable("orders", {
 export const orderItems = pgTable("order_items", {
   id: serial("id").primaryKey(),
   orderId: integer("order_id")
-    .references(() => orders.id, { onDelete: "cascade" }) // <-- Mise à jour 2
+    .references(() => orders.id, { onDelete: "cascade" })
     .notNull(),
   productId: integer("product_id")
-    .references(() => products.id, { onDelete: "cascade" }) // <-- Mise à jour 3
+    .references(() => products.id, { onDelete: "cascade" })
     .notNull(),
   quantity: integer("quantity").notNull().default(1),
   price: decimal("price", { precision: 10, scale: 2 }).notNull(),
@@ -91,7 +91,7 @@ export const orderItems = pgTable("order_items", {
 export const sales = pgTable("sales", {
   id: serial("id").primaryKey(),
   orderId: integer("order_id")
-    .references(() => orders.id, { onDelete: "cascade" }), // <-- Mise à jour 4
+    .references(() => orders.id, { onDelete: "cascade" }),
   amount: decimal("amount", { precision: 10, scale: 2 }).notNull(),
   paymentMethod: text("payment_method").notNull(),
   description: text("description"),
