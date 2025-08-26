@@ -1097,6 +1097,38 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Route pour les notifications en temps réel (polling)
+  app.get("/api/notifications/poll", authenticateToken, async (req, res) => {
+    try {
+      const notifications: any[] = [];
+      
+      // Vérifier les nouvelles commandes (dernières 5 minutes)
+      const recentOrders = await storage.getRecentOrders(5);
+      recentOrders.forEach(order => {
+        notifications.push({
+          type: 'new_order',
+          message: `Nouvelle commande #${order.id} - Table ${order.tableId}`,
+          data: order
+        });
+      });
+
+      // Vérifier les changements de statut récents
+      const statusUpdates = await storage.getRecentStatusUpdates(5);
+      statusUpdates.forEach(update => {
+        notifications.push({
+          type: 'order_update',
+          message: `Commande #${update.id} - Statut: ${update.status}`,
+          data: update
+        });
+      });
+
+      res.json(notifications);
+    } catch (error) {
+      console.error("Error fetching notifications:", error);
+      res.status(500).json({ message: "Failed to fetch notifications" });
+    }
+  });
+
   // Routes pour les statistiques et rapports
   app.get("/api/analytics/sales-by-category", authenticateToken, authorizePermission(["analytics.view"]), async (req, res) => {
     try {

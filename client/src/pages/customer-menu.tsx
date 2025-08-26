@@ -93,11 +93,11 @@ export default function CustomerMenu() {
         description: `Votre commande #${data.id} a été transmise. Suivez son évolution !`,
       });
       setShowCart(false);
-      
+
       setTimeout(() => {
         setCart([]);
         setOrderNotes("");
-      
+
       }, 1500);
     },
     onError: (error: Error) => {
@@ -296,7 +296,7 @@ export default function CustomerMenu() {
           onClose={() => removeNotification(notification.notificationId)}
         />
       ))}
-      
+
       {/* Affichage conditionnel avec des divs distinctes pour éviter les problèmes de réconciliation */}
       <div className={cn("transition-all duration-300", showCart ? "block" : "hidden")}>
         {/* CONTENU DU PANIER */}
@@ -433,7 +433,7 @@ export default function CustomerMenu() {
                     <CreditCard className="h-6 w-6 mr-4" />
                     <span className="text-lg">Paiement en espèces</span>
                   </button>
-                  
+
                   {/* Mobile Money Options */}
                   <div className="space-y-2">
                     <h4 className="font-medium text-gray-700">Mobile Money</h4>
@@ -473,7 +473,7 @@ export default function CustomerMenu() {
                     </div>
                   </div>
                 </div>
-                
+
                 {/* Payment Info */}
                 {paymentMethod === "cash" && (
                   <p className="text-sm text-gray-600 mt-4">
@@ -512,7 +512,7 @@ export default function CustomerMenu() {
           </div>
         </div>
       </div>
-      
+
       <div className={cn("transition-all duration-300", !showCart ? "block" : "hidden")}>
         {/* CONTENU DU MENU PRINCIPAL */}
         <div className="min-h-screen bg-gray-50">
@@ -673,7 +673,7 @@ export default function CustomerMenu() {
                   Aucun produit disponible
                 </h3>
                 <p className="text-gray-500">
-                  {selectedCategory 
+                  {selectedCategory
                     ? "Aucun produit dans cette catégorie."
                     : "Le menu n'est pas encore disponible."}
                 </p>

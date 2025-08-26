@@ -10,7 +10,7 @@ import {
 } from "@shared/schema";
 import { DEFAULT_PERMISSIONS } from "@shared/permissions";
 import { db } from "./db";
-import { eq, desc, and, gte, lte, sum, ne, isNull, isNotNull, asc } from "drizzle-orm";
+import { eq, desc, and, gte, lte, sum, ne, isNull, isNotNull, asc, sql } from "drizzle-orm";
 import bcrypt from "bcrypt";
 
 export interface IStorage {
@@ -88,9 +88,17 @@ export interface IStorage {
     profit: number;
     orderCount: number;
   }>;
+  getTopSellingProducts(): Promise<Array<{
+    productName: string;
+    totalQuantity: number;
+    totalRevenue: number;
+  }>>;
+  getRecentOrders(minutesAgo: number): Promise<Order[]>;
+  getRecentStatusUpdates(minutesAgo: number): Promise<Order[]>;
+
 
   // Super Admin operations
-  getSuperAdmin(id: number): Promise<SuperAdmin | undefined>;
+  getSuperAdmin(id?: number): Promise<SuperAdmin | undefined>;
   getSuperAdminByUsername(username: string): Promise<SuperAdmin | undefined>;
   createSuperAdmin(superAdmin: InsertSuperAdmin): Promise<SuperAdmin>;
   resetAllData(): Promise<void>;
@@ -465,6 +473,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Expenses
+  async getExpenses(): Promise<Expense[]>;
   async getExpenses(): Promise<Expense[]> {
     return await db.select().from(expenses)
       .where(isNull(expenses.deletedAt))
@@ -603,6 +612,51 @@ export class DatabaseStorage implements IStorage {
       profit,
       orderCount,
     };
+  }
+
+  async getTopSellingProducts(): Promise<Array<{
+    productName: string;
+    totalQuantity: number;
+    totalRevenue: number;
+  }>> {
+    const result = await db
+      .select({
+        productName: products.name,
+        totalQuantity: sql<number>`CAST(SUM(${orderItems.quantity}) AS INTEGER)`,
+        totalRevenue: sql<number>`CAST(SUM(${orderItems.quantity} * CAST(${orderItems.price} AS DECIMAL)) AS DECIMAL)`,
+      })
+      .from(orderItems)
+      .innerJoin(products, eq(orderItems.productId, products.id))
+      .innerJoin(orders, eq(orderItems.orderId, orders.id))
+      .where(eq(orders.paymentStatus, "paid"))
+      .groupBy(products.name)
+      .orderBy(sql`SUM(${orderItems.quantity}) DESC`)
+      .limit(10);
+
+    return result;
+  }
+
+  async getRecentOrders(minutesAgo: number): Promise<Order[]> {
+    const timeAgo = new Date(Date.now() - minutesAgo * 60 * 1000);
+    return await db
+      .select()
+      .from(orders)
+      .where(
+        and(
+          gte(orders.createdAt, timeAgo),
+          eq(orders.status, "pending")
+        )
+      )
+      .orderBy(desc(orders.createdAt));
+  }
+
+  async getRecentStatusUpdates(minutesAgo: number): Promise<Order[]> {
+    const timeAgo = new Date(Date.now() - minutesAgo * 60 * 1000);
+    return await db
+      .select()
+      .from(orders)
+      .where(gte(orders.createdAt, timeAgo))
+      .orderBy(desc(orders.createdAt));
   }
 
   // Super Admin operations
