@@ -606,9 +606,15 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Super Admin operations
-  async getSuperAdmin(id: number): Promise<SuperAdmin | undefined> {
-    const [superAdmin] = await db.select().from(superAdmins).where(eq(superAdmins.id, id));
-    return superAdmin;
+  async getSuperAdmin(id?: number): Promise<SuperAdmin | undefined> {
+    if (id) {
+      const [superAdmin] = await db.select().from(superAdmins).where(eq(superAdmins.id, id));
+      return superAdmin;
+    } else {
+      // Retourner le premier super admin disponible
+      const [superAdmin] = await db.select().from(superAdmins).limit(1);
+      return superAdmin;
+    }
   }
 
   async getSuperAdminByUsername(username: string): Promise<SuperAdmin | undefined> {

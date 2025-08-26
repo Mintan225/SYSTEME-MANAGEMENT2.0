@@ -550,13 +550,39 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.delete("/api/tables/:id", authenticateToken, authorizePermission(["tables.delete"]), async (req, res) => {
     try {
-      const success = await storage.deleteTable(Number(req.params.id));
-      if (!success) {
+      console.log(`[TABLE_DELETE_DEBUG] Attempting to delete table with ID: ${req.params.id}`);
+      console.log(`[TABLE_DELETE_DEBUG] User permissions:`, req.user?.permissions);
+      console.log(`[TABLE_DELETE_DEBUG] Request headers:`, JSON.stringify(req.headers, null, 2));
+
+      const tableId = Number(req.params.id);
+      if (isNaN(tableId)) {
+        console.log(`[TABLE_DELETE_DEBUG] Invalid table ID: ${req.params.id}`);
+        return res.status(400).json({ message: "Invalid table ID" });
+      }
+
+      // Vérifier si la table existe avant de la supprimer
+      const existingTable = await storage.getTable(tableId);
+      console.log(`[TABLE_DELETE_DEBUG] Existing table:`, existingTable);
+
+      if (!existingTable) {
+        console.log(`[TABLE_DELETE_DEBUG] Table not found: ${tableId}`);
         return res.status(404).json({ message: "Table not found" });
       }
+
+      const success = await storage.deleteTable(tableId);
+      console.log(`[TABLE_DELETE_DEBUG] Delete operation result:`, success);
+
+      if (!success) {
+        console.log(`[TABLE_DELETE_DEBUG] Table could not be deleted: ${tableId}`);
+        return res.status(500).json({ message: "Failed to delete table" });
+      }
+
+      console.log(`[TABLE_DELETE_DEBUG] Table ${tableId} deleted successfully`);
       res.json({ message: "Table deleted successfully" });
     } catch (error) {
-      console.error("Error deleting table:", error);
+      console.error("[TABLE_DELETE_DEBUG] Error deleting table:", error);
+      console.error("[TABLE_DELETE_DEBUG] Error stack:", error.stack);
+
       if (error instanceof Error && error.message.includes("has active orders")) {
         return res.status(400).json({
           message: "Cannot delete table with active orders",
@@ -579,7 +605,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       for (const table of tables) {
         // Générer la nouvelle URL QR avec le bon format
         const newQrCode = `${req.protocol}://${req.get('host')}/table/${table.number}`;
-        
+
         await storage.updateTable(table.id, {
           qrCode: newQrCode
         });
@@ -1097,11 +1123,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Route catch-all pour servir l'application React
   app.get('*', (req, res) => {
     const indexPath = path.join(process.cwd(), '..', 'dist', 'public', 'index.html');
-    
+
     if (fs.existsSync(indexPath)) {
       return res.sendFile(indexPath);
     }
-    
+
     console.log(`index.html not found at: ${indexPath}`);
     res.status(404).send('Application not found. Please build the frontend first.');
   });
