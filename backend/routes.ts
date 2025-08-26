@@ -127,6 +127,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Endpoint pour récupérer le menu d'une table spécifique (pour les QR codes)
   app.get("/api/menu/:tableNumber", async (req, res) => {
     try {
+      // Ajouter des headers pour éviter la mise en cache
+      res.set({
+        'Cache-Control': 'no-cache, no-store, must-revalidate',
+        'Pragma': 'no-cache',
+        'Expires': '0',
+        'Last-Modified': new Date().toUTCString()
+      });
+
       const tableNumber = parseInt(req.params.tableNumber);
       if (isNaN(tableNumber)) {
         return res.status(400).json({ message: "Numéro de table invalide" });
@@ -142,15 +150,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const categories = await storage.getCategories();
       const products = await storage.getProducts();
 
-      // Récupérer les commandes actives pour cette table (pour les notifications)
-      const activeOrders = await storage.getActiveOrders();
-      const tableOrders = activeOrders.filter((order: any) => order.tableId === table.id);
+      // Récupérer TOUTES les commandes pour cette table (pas seulement les actives)
+      const allOrders = await storage.getOrders();
+      const tableOrders = allOrders.filter((order: any) => 
+        order.tableId === table.id && 
+        !order.deletedAt && 
+        order.status !== 'cancelled'
+      );
+
+      // Log pour débugger les notifications
+      console.log(`📊 Menu API - Table ${tableNumber}:`, {
+        totalOrders: tableOrders.length,
+        orderStatuses: tableOrders.map(o => ({ id: o.id, status: o.status, customer: o.customerName })),
+        timestamp: new Date().toISOString()
+      });
 
       res.json({
         table,
         categories,
         products: products.filter(p => p.available && !p.archived),
-        orders: tableOrders
+        orders: tableOrders,
+        timestamp: new Date().toISOString() // Ajouter un timestamp pour le debug
       });
     } catch (error) {
       console.error("Error fetching menu for table:", error);

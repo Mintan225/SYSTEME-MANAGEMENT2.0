@@ -1,136 +1,108 @@
-import { useEffect, useState, useRef, useCallback } from "react";
-import { Card, CardContent } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Bell, CheckCircle, Clock, ChefHat, Package, X } from "lucide-react";
-import { formatCurrency } from "@/lib/currency";
+import { useState, useEffect, useRef } from 'react';
+import { Card, CardContent } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { X, Clock, CheckCircle, ChefHat, Utensils } from 'lucide-react';
+import { formatCurrency } from '@/lib/currency';
 
 interface OrderNotificationProps {
-  order: {
-    id: number;
-    status: string;
-    customerName?: string;
-    total: string;
-    createdAt: string;
-  };
+  order: any;
   onClose?: () => void;
 }
 
 export function OrderNotification({ order, onClose }: OrderNotificationProps) {
-  const [show, setShow] = useState(true);
-  const timerRef = useRef<NodeJS.Timeout | null>(null);
+  const [isVisible, setIsVisible] = useState(true);
 
   useEffect(() => {
-    timerRef.current = setTimeout(() => {
-      handleClose();
-    }, 5000);
-
-    return () => {
-      if (timerRef.current) {
-        clearTimeout(timerRef.current);
-        timerRef.current = null;
-      }
-    };
-  }, []);
-
-  const handleClose = () => {
-    if (timerRef.current) {
-      clearTimeout(timerRef.current);
-      timerRef.current = null;
-    }
-    setShow(false);
-    if (onClose) {
+    // Auto-hide notification after 8 seconds
+    const timer = setTimeout(() => {
+      setIsVisible(false);
       setTimeout(() => {
-        try {
-          onClose();
-        } catch (error) {
-          console.warn('Error during notification close:', error);
-        }
-      }, 300); // Délai pour l'animation
-    }
-  };
+        onClose?.();
+      }, 300); // Wait for animation to complete
+    }, 8000);
 
-  const getStatusInfo = (status: string) => {
-    switch (status) {
-      case "pending":
-        return {
-          icon: Clock,
-          text: "Confirmée",
-          color: "bg-yellow-500",
-          message: "Commande confirmée ! Nous préparons tous..."
-        };
-      case "preparing":
-        return {
-          icon: ChefHat,
-          text: "En préparation",
-          color: "bg-blue-500",
-          message: "Votre commande a été transmise au comptoir et est en préparation."
-        };
-      case "ready":
-        return {
-          icon: Package,
-          text: "Prête",
-          color: "bg-green-500",
-          message: "Votre commande est prête ! Patientez un instant et vous serez servi."
-        };
-      case "completed":
-        return {
-          icon: CheckCircle,
-          text: "Livrée",
-          color: "bg-gray-500",
-          message: "Commande livrée avec succès. Merci de votre visite !"
-        };
+    return () => clearTimeout(timer);
+  }, [onClose]);
+
+  const getStatusIcon = () => {
+    switch (order.status) {
+      case 'preparing':
+        return <ChefHat className="h-5 w-5 text-yellow-600" />;
+      case 'ready':
+        return <Utensils className="h-5 w-5 text-green-600" />;
+      case 'completed':
+        return <CheckCircle className="h-5 w-5 text-blue-600" />;
       default:
-        return {
-          icon: Bell,
-          text: "Mise à jour",
-          color: "bg-gray-500",
-          message: "Le statut de votre commande a été mis à jour."
-        };
+        return <Clock className="h-5 w-5 text-gray-600" />;
     }
   };
 
-  const statusInfo = getStatusInfo(order.status);
-  const StatusIcon = statusInfo.icon;
+  const getStatusText = () => {
+    switch (order.status) {
+      case 'preparing':
+        return 'En préparation';
+      case 'ready':
+        return 'Prête !';
+      case 'completed':
+        return 'Terminée';
+      default:
+        return order.status;
+    }
+  };
 
-  if (!show) return null;
+  const getStatusColor = () => {
+    switch (order.status) {
+      case 'preparing':
+        return 'bg-yellow-100 border-yellow-300';
+      case 'ready':
+        return 'bg-green-100 border-green-300';
+      case 'completed':
+        return 'bg-blue-100 border-blue-300';
+      default:
+        return 'bg-gray-100 border-gray-300';
+    }
+  };
+
+  if (!isVisible) return null;
 
   return (
-    <div 
-      className={`fixed top-4 right-4 z-50 w-96 transition-all duration-300 ${
-        show ? 'transform translate-x-0 opacity-100' : 'transform translate-x-full opacity-0'
-      }`}
-    >
-      <Card className="shadow-lg border-l-4 border-l-primary">
+    <div className="fixed top-4 right-4 z-50 w-80 animate-in slide-in-from-right-full duration-300">
+      <Card className={`border-2 shadow-lg ${getStatusColor()}`}>
         <CardContent className="p-4">
-          <div className="flex items-start space-x-3">
-            <div className={`p-2 rounded-full ${statusInfo.color}`}>
-              <StatusIcon className="h-4 w-4 text-white" />
+          <div className="flex items-start justify-between mb-3">
+            <div className="flex items-center space-x-2">
+              {getStatusIcon()}
+              <h3 className="font-semibold text-gray-900">
+                Commande #{order.id}
+              </h3>
             </div>
-            
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center space-x-2 mb-1">
-                <h4 className="font-semibold text-sm">Commande #{order.id}</h4>
-                <Badge className={`${statusInfo.color} text-white`}>
-                  {statusInfo.text}
-                </Badge>
-              </div>
-              
-              {order.customerName && (
-                <p className="text-sm text-gray-600 mb-1">{order.customerName}</p>
-              )}
-              
-              <p className="text-sm text-gray-800 mb-2">{statusInfo.message}</p>
-              
-              <div className="flex items-center justify-between text-xs text-gray-500">
-                <span>Total: {formatCurrency(parseFloat(order.total))}</span>
-                <button
-                  onClick={handleClose}
-                  className="text-gray-400 hover:text-gray-600 p-1"
-                  aria-label="Fermer la notification"
-                >
-                  <X className="h-3 w-3" />
-                </button>
-              </div>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => {
+                setIsVisible(false);
+                setTimeout(onClose, 300);
+              }}
+              className="h-6 w-6 p-0"
+            >
+              <X className="h-4 w-4" />
+            </Button>
+          </div>
+
+          <div className="space-y-2">
+            <Badge variant="outline" className="mb-2">
+              {getStatusText()}
+            </Badge>
+
+            <p className="text-sm text-gray-700">
+              {order.status === 'preparing' && "🍴 Votre commande est en cours de préparation..."}
+              {order.status === 'ready' && "🎉 Votre commande est prête ! Vous pouvez la récupérer."}
+              {order.status === 'completed' && "✅ Votre commande a été servie. Merci !"}
+            </p>
+
+            <div className="text-xs text-gray-500 mt-2">
+              Total: {formatCurrency(order.total || 0)}
             </div>
           </div>
         </CardContent>
@@ -139,143 +111,170 @@ export function OrderNotification({ order, onClose }: OrderNotificationProps) {
   );
 }
 
-// Hook pour écouter les mises à jour des commandes avec gestion robuste
+// Hook pour écouter les mises à jour des commandes avec gestion robuste et polling plus fréquent
 export function useOrderNotifications(tableId?: number, customerName?: string, customerPhone?: string) {
   const [notifications, setNotifications] = useState<any[]>([]);
   const [lastOrderStatuses, setLastOrderStatuses] = useState<Record<number, string>>({});
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
   const isMountedRef = useRef(true);
+  const lastCheckRef = useRef<number>(0);
 
-  // Cleanup effect pour marquer le composant comme démonté
+  // Cleanup effect
   useEffect(() => {
+    isMountedRef.current = true;
     return () => {
       isMountedRef.current = false;
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+      }
     };
   }, []);
 
   useEffect(() => {
-    if (!tableId || tableId === 0) return;
+    if (!tableId || tableId === 0 || !customerName) return;
 
     const checkForUpdates = async () => {
+      if (!isMountedRef.current) return;
+
       try {
-        const response = await fetch(`/api/menu/${tableId}?t=${Date.now()}`);
-        if (!response.ok) return;
-        
+        const response = await fetch(`/api/menu/${tableId}?t=${Date.now()}`, {
+          headers: {
+            'Cache-Control': 'no-cache',
+            'Pragma': 'no-cache'
+          }
+        });
+
+        if (!response.ok || !isMountedRef.current) return;
+
         const data = await response.json();
         const currentOrders = data.orders || [];
-        
-        // Filtrer les commandes pour ce client spécifique
+
+        // Filtrer les commandes pour ce client spécifique avec une logique améliorée
         const customerOrders = currentOrders.filter((order: any) => {
+          const nameMatch = customerName && order.customerName?.toLowerCase().trim() === customerName.toLowerCase().trim();
+          const phoneMatch = customerPhone && order.customerPhone === customerPhone;
+
+          // Si on a nom ET téléphone, les deux doivent correspondre
           if (customerName && customerPhone) {
-            return order.customerName?.toLowerCase() === customerName.toLowerCase() && 
-                   order.customerPhone === customerPhone;
-          } else if (customerName) {
-            return order.customerName?.toLowerCase() === customerName.toLowerCase();
-          } else if (customerPhone) {
-            return order.customerPhone === customerPhone;
+            return nameMatch && phoneMatch;
           }
-          return false; // Si pas d'info client, ne rien afficher
+          // Si on a seulement le nom
+          else if (customerName) {
+            return nameMatch;
+          }
+          // Si on a seulement le téléphone
+          else if (customerPhone) {
+            return phoneMatch;
+          }
+
+          return false;
         });
-        
-        // Vérifier les changements de statut pour les commandes du client
+
+        // Créer un log pour débugger
+        if (process.env.NODE_ENV === 'development') {
+          console.log("🔍 Notification polling:", {
+            tableId,
+            customerName,
+            customerPhone,
+            totalOrders: currentOrders.length,
+            customerOrders: customerOrders.length,
+            timestamp: new Date().toLocaleTimeString()
+          });
+        }
+
+        // Vérifier les changements de statut
         customerOrders.forEach((order: any) => {
           const previousStatus = lastOrderStatuses[order.id];
-          
-          // Débogage pour voir les changements de statut
-          if (process.env.NODE_ENV === 'development') {
-            console.log("Notification check:", {
-              orderId: order.id,
-              previousStatus,
-              currentStatus: order.status,
-              hasChanged: previousStatus && previousStatus !== order.status,
-              timestamp: new Date().toLocaleTimeString()
-            });
-          }
-          
-          if (previousStatus && previousStatus !== order.status && 
-              (order.status === "preparing" || order.status === "ready" || order.status === "completed")) {
-            
-            const notificationId = `${order.id}-${order.status}-${Date.now()}`;
-            
-            console.log("Creating notification for status change:", {
+          const currentStatus = order.status;
+
+          // Si c'est un changement de statut significatif
+          if (previousStatus && 
+              previousStatus !== currentStatus && 
+              ['preparing', 'ready', 'completed'].includes(currentStatus) &&
+              Date.now() - lastCheckRef.current > 1000) { // Éviter les doublons rapides
+
+            const notificationId = `${order.id}-${currentStatus}-${Date.now()}`;
+
+            console.log("🔔 Nouvelle notification:", {
               orderId: order.id,
               fromStatus: previousStatus,
-              toStatus: order.status,
-              notificationId
+              toStatus: currentStatus,
+              customerName: order.customerName,
+              notificationId,
+              timestamp: new Date().toLocaleTimeString()
             });
-            
+
             if (isMountedRef.current) {
               setNotifications(prev => {
-                // Éviter les doublons et limiter le nombre de notifications
-                const exists = prev.some(n => n.notificationId === notificationId);
+                // Vérifier si cette notification existe déjà
+                const exists = prev.some(n => 
+                  n.id === order.id && 
+                  n.status === currentStatus &&
+                  Date.now() - n.timestamp < 5000 // Dans les 5 dernières secondes
+                );
+
                 if (!exists) {
-                  const newNotifications = [...prev, { 
+                  const newNotification = { 
                     ...order, 
                     notificationId,
                     timestamp: Date.now(),
                     isStatusChange: true 
-                  }];
-                  // Limiter à 3 notifications maximum pour éviter l'encombrement
-                  return newNotifications.slice(-3);
+                  };
+
+                  // Limiter à 3 notifications maximum
+                  const updatedNotifications = [...prev, newNotification];
+                  return updatedNotifications.slice(-3);
                 }
                 return prev;
               });
             }
           }
         });
-        
-        // Mettre à jour le cache des statuts pour les commandes du client
-        const newStatuses: Record<number, string> = {};
-        customerOrders.forEach((order: any) => {
-          newStatuses[order.id] = order.status;
-        });
-        
-        // Pour la première fois, initialiser les statuts sans déclencher de notifications
-        setLastOrderStatuses(prev => {
-          if (Object.keys(prev).length === 0) {
-            console.log("Initializing status cache:", newStatuses);
-            return newStatuses;
-          }
-          return newStatuses;
-        });
-        
+
+        // Mettre à jour le cache des statuts
+        if (isMountedRef.current) {
+          const newStatuses: Record<number, string> = {};
+          customerOrders.forEach((order: any) => {
+            newStatuses[order.id] = order.status;
+          });
+
+          setLastOrderStatuses(newStatuses);
+          lastCheckRef.current = Date.now();
+        }
+
       } catch (error) {
-        console.error("Erreur lors de la vérification des mises à jour:", error);
+        if (isMountedRef.current) {
+          console.error("❌ Erreur lors de la vérification des mises à jour:", error);
+        }
       }
     };
 
-    // Vérification initiale immédiate pour initialiser les statuts
+    // Polling plus agressif: vérifier immédiatement puis toutes les 2 secondes
+    console.log("🚀 Démarrage du polling pour notifications:", { tableId, customerName });
     checkForUpdates();
-    
-    // Vérification initiale après un délai
-    const initialTimer = setTimeout(checkForUpdates, 1000);
-    
-    // Intervalle régulier - réduit à 2 secondes pour plus de réactivité
+
+    if (intervalRef.current) {
+      clearInterval(intervalRef.current);
+    }
+
     intervalRef.current = setInterval(checkForUpdates, 2000);
 
     return () => {
-      clearTimeout(initialTimer);
       if (intervalRef.current) {
         clearInterval(intervalRef.current);
+        intervalRef.current = null;
       }
     };
   }, [tableId, customerName, customerPhone]);
 
-  const removeNotification = (notificationId: string) => {
-    setNotifications(prev => prev.filter(n => n.notificationId !== notificationId));
+  const removeNotification = (notificationId?: string) => {
+    if (notificationId && isMountedRef.current) {
+      setNotifications(prev => prev.filter(n => n.notificationId !== notificationId));
+    }
   };
 
-  // Nettoyer automatiquement les notifications anciennes
-  useEffect(() => {
-    const cleanupTimer = setInterval(() => {
-      setNotifications(prev => {
-        const now = Date.now();
-        return prev.filter(n => now - n.timestamp < 30000); // Supprimer après 30 secondes
-      });
-    }, 10000); // Nettoyer toutes les 10 secondes
-
-    return () => clearInterval(cleanupTimer);
-  }, []);
-
-  return { notifications, removeNotification };
+  return {
+    notifications,
+    removeNotification
+  };
 }

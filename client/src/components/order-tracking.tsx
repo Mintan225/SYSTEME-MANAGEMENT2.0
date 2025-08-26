@@ -26,12 +26,19 @@ export function OrderTracking({ tableId, customerName, customerPhone, onClose }:
 
   const { data: menuData, isLoading, refetch } = useQuery({
     queryKey: [`/api/menu/${tableId}`],
-    refetchInterval: autoRefresh ? 2000 : false, // Actualisation toutes les 2 secondes pour plus de réactivité
+    refetchInterval: autoRefresh ? 1500 : false, // Actualisation plus rapide - 1.5 secondes
     enabled: !!tableId,
-    refetchOnWindowFocus: true, // Actualiser quand la fenêtre redevient active
-    staleTime: 0, // Les données sont considérées comme périmées immédiatement
+    refetchOnWindowFocus: true,
+    refetchOnMount: true,
+    staleTime: 0,
+    cacheTime: 0, // Pas de cache pour avoir toujours les données fraîches
     queryFn: async () => {
-      const response = await fetch(`/api/menu/${tableId}?t=${Date.now()}`);
+      const response = await fetch(`/api/menu/${tableId}?t=${Date.now()}`, {
+        headers: {
+          'Cache-Control': 'no-cache',
+          'Pragma': 'no-cache'
+        }
+      });
       if (!response.ok) {
         throw new Error('Failed to fetch menu data');
       }
