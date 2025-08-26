@@ -51,48 +51,53 @@ export const products = pgTable("products", {
 });
 
 export const tables = pgTable("tables", {
-  id: serial("id").primaryKey(),
-  number: integer("number").notNull().unique(),
-  capacity: integer("capacity").notNull().default(4),
-  qrCode: text("qr_code").notNull(),
-  status: text("status").notNull().default("available"), // available, occupied, reserved
-  createdAt: timestamp("created_at").defaultNow().notNull(),
+  id: serial("id").primaryKey(),
+  number: integer("number").notNull().unique(),
+  capacity: integer("capacity").notNull().default(4),
+  qrCode: text("qr_code").notNull(),
+  status: text("status").notNull().default("available"), // available, occupied, reserved
+  createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
 export const orders = pgTable("orders", {
-  id: serial("id").primaryKey(),
-  tableId: integer("table_id").references(() => tables.id),
-  customerName: text("customer_name"),
-  customerPhone: text("customer_phone"),
-  status: text("status").notNull().default("pending"), // pending, preparing, ready, completed, cancelled
-  paymentMethod: text("payment_method"), // cash, mobile_money
-  paymentStatus: text("payment_status").notNull().default("pending"), // pending, paid, failed
-  total: decimal("total", { precision: 10, scale: 2 }).notNull(),
-  notes: text("notes"),
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-  completedAt: timestamp("completed_at"),
-  deletedAt: timestamp("deleted_at"),
+  id: serial("id").primaryKey(),
+  tableId: integer("table_id")
+    .references(() => tables.id, { onDelete: "cascade" }), // <-- Mise à jour 1
+  customerName: text("customer_name"),
+  customerPhone: text("customer_phone"),
+  status: text("status").notNull().default("pending"),
+  paymentMethod: text("payment_method"),
+  paymentStatus: text("payment_status").notNull().default("pending"),
+  total: decimal("total", { precision: 10, scale: 2 }).notNull(),
+  notes: text("notes"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  completedAt: timestamp("completed_at"),
+  deletedAt: timestamp("deleted_at"),
 });
 
 export const orderItems = pgTable("order_items", {
-  id: serial("id").primaryKey(),
-  orderId: integer("order_id").references(() => orders.id).notNull(),
-  productId: integer("product_id").references(() => products.id).notNull(),
-  quantity: integer("quantity").notNull().default(1),
-  price: decimal("price", { precision: 10, scale: 2 }).notNull(),
-  notes: text("notes"),
+  id: serial("id").primaryKey(),
+  orderId: integer("order_id")
+    .references(() => orders.id, { onDelete: "cascade" }) // <-- Mise à jour 2
+    .notNull(),
+  productId: integer("product_id")
+    .references(() => products.id, { onDelete: "cascade" }) // <-- Mise à jour 3
+    .notNull(),
+  quantity: integer("quantity").notNull().default(1),
+  price: decimal("price", { precision: 10, scale: 2 }).notNull(),
+  notes: text("notes"),
 });
 
 export const sales = pgTable("sales", {
-  id: serial("id").primaryKey(),
-  orderId: integer("order_id").references(() => orders.id),
-  amount: decimal("amount", { precision: 10, scale: 2 }).notNull(),
-  paymentMethod: text("payment_method").notNull(),
-  description: text("description"),
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-  deletedAt: timestamp("deleted_at"),
+  id: serial("id").primaryKey(),
+  orderId: integer("order_id")
+    .references(() => orders.id, { onDelete: "cascade" }), // <-- Mise à jour 4
+  amount: decimal("amount", { precision: 10, scale: 2 }).notNull(),
+  paymentMethod: text("payment_method").notNull(),
+  description: text("description"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  deletedAt: timestamp("deleted_at"),
 });
-
 export const expenses = pgTable("expenses", {
   id: serial("id").primaryKey(),
   description: text("description").notNull(),
