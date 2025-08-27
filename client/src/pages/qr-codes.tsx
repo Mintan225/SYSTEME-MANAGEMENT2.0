@@ -119,6 +119,25 @@ export default function QRCodes() {
     const tableNumber = parseInt(newTableNumber);
     const capacity = parseInt(newTableCapacity);
 
+    // Validation côté client plus complète
+    if (isNaN(tableNumber) || tableNumber <= 0) {
+      toast({
+        title: "Erreur",
+        description: "Le numéro de table doit être un nombre positif",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (isNaN(capacity) || capacity <= 0 || capacity > 50) {
+      toast({
+        title: "Erreur",
+        description: "La capacité doit être entre 1 et 50 personnes",
+        variant: "destructive",
+      });
+      return;
+    }
+
     if (tables.some((table: any) => table.number === tableNumber)) {
       toast({
         title: "Erreur",

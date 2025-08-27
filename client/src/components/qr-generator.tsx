@@ -80,8 +80,31 @@ export function QRGenerator({ table }: QRGeneratorProps) {
   };
 
   const handleDelete = () => {
-    if (window.confirm(`Êtes-vous sûr de vouloir supprimer la table ${table.number} ?`)) {
-      deleteMutation.mutate(table.id);
+    if (window.confirm(
+      `Êtes-vous sûr de vouloir supprimer la table ${table.number} ?\n\n` +
+      `Cette action est irréversible et supprimera définitivement :\n` +
+      `- Le QR code de la table\n` +
+      `- Toutes les données associées\n\n` +
+      `Les commandes actives doivent être terminées avant la suppression.`
+    )) {
+      deleteMutation.mutate(table.id, {
+        onError: (error: any) => {
+          // Gestion spécifique des erreurs de suppression
+          if (error.message.includes("active orders")) {
+            toast({
+              title: "Suppression impossible",
+              description: "Cette table a des commandes actives. Terminez-les d'abord.",
+              variant: "destructive",
+            });
+          } else if (error.message.includes("constraint")) {
+            toast({
+              title: "Suppression impossible",
+              description: "Cette table est liée à d'autres données du système.",
+              variant: "destructive",
+            });
+          }
+        }
+      });
     }
   };
 
@@ -110,7 +133,14 @@ export function QRGenerator({ table }: QRGeneratorProps) {
         ) : (
           <div className="flex justify-center">
             <div className="w-32 h-32 bg-gray-100 border rounded-md flex items-center justify-center">
-              <QrCode className="w-8 h-8 text-gray-400" />
+              {isGenerating ? (
+                <div className="flex flex-col items-center space-y-2">
+                  <div className="animate-spin w-6 h-6 border-2 border-blue-600 border-t-transparent rounded-full"></div>
+                  <span className="text-xs text-gray-500">Génération...</span>
+                </div>
+              ) : (
+                <QrCode className="w-8 h-8 text-gray-400" />
+              )}
             </div>
           </div>
         )}
