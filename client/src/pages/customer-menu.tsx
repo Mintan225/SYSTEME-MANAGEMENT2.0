@@ -66,6 +66,20 @@ export default function CustomerMenu() {
     retryDelay: 1000,
     staleTime: 30000, // Cache les données pendant 30 secondes
     refetchOnWindowFocus: false, // Évite les requêtes inutiles
+    // Custom queryFn pour éviter l'authentification requise par défaut
+    queryFn: async () => {
+      const response = await fetch(`/api/menu/${tableNumber}`, {
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+      
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
+      
+      return response.json();
+    },
     onError: (error) => {
       console.error("Error fetching menu data:", error);
     },
