@@ -9,7 +9,7 @@
   "scripts": {
     "dev": "cross-env NODE_ENV=development tsx server/index.ts",
     "build": "npm run build:frontend && npm run build:backend",
-    "build:frontend": "cd client && npm run build && cd .. && mkdir -p dist/public && cp -r client/dist/* dist/public/",
+    "build:frontend": "cd frontend && npm run build && cd .. && mkdir -p dist/public && cp -r frontend/dist/* dist/public/",
     "build:backend": "esbuild server/index.ts --bundle --platform=node --target=node18 --outfile=dist/index.js --external:pg --external:drizzle-orm --external:@shared/schema --external:@shared/config --external:@shared/permissions",
     "start": "cross-env NODE_ENV=production node dist/index.js",
     "generate-secrets": "node generate-secrets.cjs",

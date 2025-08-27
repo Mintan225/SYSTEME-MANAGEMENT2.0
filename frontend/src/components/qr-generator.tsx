@@ -1,9 +1,12 @@
 import { useState, useEffect } from "react";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { generateTableQRCode, downloadQRCode } from "@/lib/qr-utils";
-import { Download, QrCode } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
+import authService from "@/lib/auth";
+import { Download, QrCode, Trash2 } from "lucide-react";
 
 interface Table {
   id: number;
@@ -20,6 +23,8 @@ interface QRGeneratorProps {
 export function QRGenerator({ table }: QRGeneratorProps) {
   const [qrCodeUrl, setQrCodeUrl] = useState<string>("");
   const [isGenerating, setIsGenerating] = useState(false);
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
 
   useEffect(() => {
     generateQR();
@@ -35,14 +40,65 @@ export function QRGenerator({ table }: QRGeneratorProps) {
       setQrCodeUrl(qrUrl);
     } catch (error) {
       console.error("Failed to generate QR code:", error);
+      toast({
+        title: "Erreur",
+        description: "Impossible de générer le code QR",
+        variant: "destructive",
+      });
     } finally {
       setIsGenerating(false);
     }
   };
 
+  const deleteMutation = useMutation({
+    mutationFn: async (id: number) => {
+      const response = await fetch(`/api/tables/${id}`, {
+        method: "DELETE",
+        headers: authService.getAuthHeaders(),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || "Erreur lors de la suppression");
+      }
+
+      return response.json();
+    },
+    onSuccess: () => {
+      toast({
+        title: "Succès",
+        description: "Table supprimée avec succès",
+      });
+      queryClient.invalidateQueries({ queryKey: ["/api/tables"] });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Erreur",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
   const handleDownload = () => {
     if (qrCodeUrl) {
       downloadQRCode(qrCodeUrl, `table-${table.number}-qr.png`);
+      toast({
+        title: "Succès",
+        description: "QR code téléchargé",
+      });
+    }
+  };
+
+  const handleDelete = () => {
+    if (window.confirm(
+      `Êtes-vous sûr de vouloir supprimer la table ${table.number} ?\n\n` +
+      `Cette action est irréversible et supprimera définitivement :\n` +
+      `- Le QR code de la table\n` +
+      `- Toutes les données associées\n\n` +
+      `Les commandes actives doivent être terminées avant la suppression.`
+    )) {
+      deleteMutation.mutate(table.id);
     }
   };
 
@@ -104,7 +160,7 @@ export function QRGenerator({ table }: QRGeneratorProps) {
             <p>Capacité: {table.capacity} personnes</p>
           </div>
 
-          <div className="flex space-x-2">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 w-full">
             <Button
               size="sm"
               variant="outline"
@@ -121,6 +177,15 @@ export function QRGenerator({ table }: QRGeneratorProps) {
             >
               <Download className="h-4 w-4 mr-1" />
               Télécharger
+            </Button>
+            <Button
+              size="sm"
+              variant="destructive"
+              onClick={handleDelete}
+              disabled={deleteMutation.isPending}
+            >
+              <Trash2 className="h-4 w-4 mr-1" />
+              {deleteMutation.isPending ? "Suppression..." : "Supprimer"}
             </Button>
           </div>
         </div>

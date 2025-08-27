@@ -26,6 +26,15 @@ export default function QRCodes() {
 
   const { data: tables = [], isLoading } = useQuery({
     queryKey: ["/api/tables"],
+    queryFn: async () => {
+      const response = await fetch("/api/tables", {
+        headers: authService.getAuthHeaders(),
+      });
+      if (!response.ok) {
+        throw new Error("Failed to fetch tables");
+      }
+      return response.json();
+    },
   });
 
   const createTableMutation = useMutation({
