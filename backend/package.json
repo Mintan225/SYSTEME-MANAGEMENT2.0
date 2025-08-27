@@ -13,8 +13,7 @@
     "start": "cross-env NODE_ENV=production node dist/index.js",
     "db:push": "drizzle-kit push",
     "db:generate": "drizzle-kit generate",
-    "db:seed": "ts-node --esm seed.mts",
-    "postinstall": "npm run db:push"
+    "db:seed": "ts-node --esm seed.mts"
   },
   "dependencies": {
     "@neondatabase/serverless": "^0.10.4",
