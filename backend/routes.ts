@@ -123,24 +123,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       'X-Content-Type-Options': 'nosniff'
     });
 
-    // Vérifier si c'est une requête mobile/scanner QR (User-Agent)
-    const userAgent = req.get('User-Agent') || '';
-    const isMobileScanner = /Mobile|Android|iPhone|iPad|QR|Scanner/i.test(userAgent);
+    console.log(`[QR_ROUTE_DEBUG] Request to /table/${tableNumber} from User-Agent: ${req.get('User-Agent')}`);
 
-    // Si c'est un scanner mobile, faire une redirection explicite
-    if (isMobileScanner) {
-      return res.redirect(301, `/menu/${tableNumber}`);
-    }
-
-    // Pour les autres cas, servir l'application React
-    const indexPath = path.join(process.cwd(), '..', 'dist', 'public', 'index.html');
-    
-    if (fs.existsSync(indexPath)) {
-      return res.sendFile(indexPath);
-    }
-    
-    // Fallback: redirection si le fichier n'existe pas
-    res.redirect(301, `/menu/${tableNumber}`);
+    // Toujours rediriger vers le menu avec un code 302 (redirection temporaire)
+    console.log(`[QR_ROUTE_DEBUG] Redirecting to /menu/${tableNumber}`);
+    return res.redirect(302, `/menu/${tableNumber}`);
   });
 
   // Route directe pour servir le menu (pour compatibilité avec tous les scanners)

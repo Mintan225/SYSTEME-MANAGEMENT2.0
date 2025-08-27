@@ -39,10 +39,12 @@ export function generateTableQRData(tableNumber: number, baseUrl?: string): stri
   if (baseUrl) {
     url = baseUrl;
   } else {
-    // Utiliser HTTPS par défaut pour éviter les problèmes de sécurité sur mobile
-    const origin = window.location.origin.replace('http://', 'https://');
-    url = `${origin}/menu/${tableNumber}`;
+    // Utiliser /table/ pour que la redirection fonctionne correctement
+    const origin = window.location.origin;
+    url = `${origin}/table/${tableNumber}`;
   }
+  
+  console.log(`[QR_GENERATION] Generated QR URL for table ${tableNumber}: ${url}`);
   
   // S'assurer que l'URL est bien formatée
   return url;
