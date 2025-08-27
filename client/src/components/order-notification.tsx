@@ -115,6 +115,8 @@ export function OrderNotification({ order, onClose }: OrderNotificationProps) {
 export function useOrderNotifications(tableId?: number, customerName?: string, customerPhone?: string) {
   const [notifications, setNotifications] = useState<any[]>([]);
   const [lastOrderStatuses, setLastOrderStatuses] = useState<Record<number, string>>({});
+  const [isConnected, setIsConnected] = useState(false);
+  const [lastUpdate, setLastUpdate] = useState<Date | null>(null);
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
   const isMountedRef = useRef(true);
   const lastCheckRef = useRef<number>(0);
@@ -182,6 +184,12 @@ export function useOrderNotifications(tableId?: number, customerName?: string, c
           });
         }
 
+        // Mettre à jour le statut de connexion et la dernière mise à jour
+        if (isMountedRef.current) {
+          setIsConnected(true);
+          setLastUpdate(new Date());
+        }
+
         // Vérifier les changements de statut
         customerOrders.forEach((order: any) => {
           const previousStatus = lastOrderStatuses[order.id];
@@ -245,6 +253,15 @@ export function useOrderNotifications(tableId?: number, customerName?: string, c
       } catch (error) {
         if (isMountedRef.current) {
           console.error("❌ Erreur lors de la vérification des mises à jour:", error);
+          setIsConnected(false);
+          
+          // En cas d'erreur, augmenter légèrement l'intervalle pour éviter le spam
+          setTimeout(() => {
+            if (isMountedRef.current && intervalRef.current) {
+              clearInterval(intervalRef.current);
+              intervalRef.current = setInterval(checkForUpdates, 3000); // 3 secondes au lieu de 2
+            }
+          }, 5000); // Attendre 5 secondes avant de reprendre
         }
       }
     };
@@ -275,6 +292,8 @@ export function useOrderNotifications(tableId?: number, customerName?: string, c
 
   return {
     notifications,
-    removeNotification
+    removeNotification,
+    isConnected,
+    lastUpdate
   };
 }

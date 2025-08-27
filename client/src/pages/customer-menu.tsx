@@ -51,7 +51,13 @@ export default function CustomerMenu() {
   const [lastOrderId, setLastOrderId] = useState<number | null>(null);
   const [showOrderTracking, setShowOrderTracking] = useState(false);
   const { toast } = useToast();
-  const { notifications, removeNotification } = useOrderNotifications(parseInt(tableNumber || "0"), customerName, customerPhone);
+
+  // Hook pour les notifications en temps réel
+  const { notifications, removeNotification, isConnected, lastUpdate } = useOrderNotifications(
+    parseInt(tableNumber || "0"),
+    customerName.trim() || undefined,
+    customerPhone.trim() || undefined
+  );
 
   const { data: menuData, isLoading, error } = useQuery({
     queryKey: [`/api/menu/${tableNumber}`],
@@ -524,9 +530,25 @@ export default function CustomerMenu() {
                   <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center mr-3">
                     <UtensilsCrossed className="h-4 w-4 text-white" />
                   </div>
-                  <div>
-                    <h1 className="text-lg font-bold">Notre Menu</h1>
-                    <p className="text-sm text-gray-600">Table {table.number}</p>
+                  <div className="flex flex-col space-y-2">
+                    <h1 className="text-2xl font-bold text-gray-900">
+                      Menu - Table {table?.number || tableId}
+                    </h1>
+                    {customerName && (
+                      <div className="flex items-center space-x-3 text-sm">
+                        <div className="flex items-center space-x-1">
+                          <div className={`w-2 h-2 rounded-full ${isConnected ? 'bg-green-500' : 'bg-red-500'}`}></div>
+                          <span className="text-gray-600">
+                            {isConnected ? 'Notifications actives' : 'Connexion perdue'}
+                          </span>
+                        </div>
+                        {lastUpdate && (
+                          <span className="text-gray-500">
+                            Dernière MAJ: {lastUpdate.toLocaleTimeString()}
+                          </span>
+                        )}
+                      </div>
+                    )}
                   </div>
                 </div>
                 <div className="flex space-x-2">
