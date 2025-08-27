@@ -124,7 +124,13 @@ function Router() {
 
       {/* Customer menu routes (public, no auth required) */}
       <Route path="/table/:tableNumber" component={TableRedirect} />
-      <Route path="/menu/:tableNumber" component={CustomerMenu} />
+      
+      <Route path="/menu/:tableNumber">
+        <PublicRoute>
+          <CustomerMenu />
+        </PublicRoute>
+      </Route>
+      
       <Route path="/notification-demo" component={NotificationDemo} />
 
 
