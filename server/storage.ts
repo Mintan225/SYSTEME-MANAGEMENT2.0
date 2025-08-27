@@ -295,8 +295,53 @@ export class DatabaseStorage implements IStorage {
   }
 
   async deleteTable(id: number): Promise<boolean> {
-    const result = await db.delete(tables).where(eq(tables.id, id));
-    return (result.rowCount ?? 0) > 0;
+    try {
+      // Vérifier si la table a des commandes actives
+      const activeOrders = await db.select().from(orders)
+        .where(and(
+          eq(orders.tableId, id),
+          ne(orders.status, 'completed'),
+          ne(orders.status, 'cancelled'),
+          isNull(orders.deletedAt)
+        ));
+
+      if (activeOrders.length > 0) {
+        throw new Error("Impossible de supprimer une table avec des commandes actives. Veuillez d'abord terminer ou annuler les commandes en cours.");
+      }
+
+      // Vérifier toutes les commandes liées à cette table (même terminées)
+      const allOrders = await db.select().from(orders)
+        .where(eq(orders.tableId, id));
+
+      if (allOrders.length > 0) {
+        // Si des commandes historiques existent, donner un message informatif
+        console.log(`Table ${id} has ${allOrders.length} historical orders.`);
+        
+        // Marquer les commandes comme supprimées en soft-delete si pas déjà fait
+        await db.update(orders)
+          .set({ deletedAt: new Date() })
+          .where(and(
+            eq(orders.tableId, id),
+            isNull(orders.deletedAt)
+          ));
+          
+        console.log(`Soft-deleted historical orders for table ${id}`);
+      }
+
+      // Maintenant supprimer la table
+      const result = await db.delete(tables).where(eq(tables.id, id));
+      return (result.rowCount ?? 0) > 0;
+      
+    } catch (error) {
+      console.error("Error deleting table:", error);
+      
+      // Si c'est une erreur de contrainte de clé étrangère, donner un message plus explicite
+      if (error instanceof Error && error.message.includes('constraint')) {
+        throw new Error("Impossible de supprimer cette table car elle a des commandes associées. Les commandes ont été archivées, veuillez réessayer.");
+      }
+      
+      throw error;
+    }
   }
 
   // Orders
