@@ -303,6 +303,24 @@ export class DatabaseStorage implements IStorage {
         throw new Error("Cannot delete table with active orders");
       }
 
+      // Archiver toutes les commandes restantes (completed/cancelled) liées à cette table
+      // pour éviter les contraintes de clé étrangère
+      const allTableOrders = await db.select().from(orders)
+        .where(and(
+          eq(orders.tableId, id),
+          isNull(orders.deletedAt)
+        ));
+
+      if (allTableOrders.length > 0) {
+        console.log(`Archiving ${allTableOrders.length} orders for table ${id}`);
+        await db.update(orders)
+          .set({ deletedAt: new Date() })
+          .where(and(
+            eq(orders.tableId, id),
+            isNull(orders.deletedAt)
+          ));
+      }
+
       const result = await db.delete(tables).where(eq(tables.id, id));
       return (result.rowCount ?? 0) > 0;
     } catch (error) {

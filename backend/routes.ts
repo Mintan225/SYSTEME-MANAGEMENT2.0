@@ -687,15 +687,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (error instanceof Error) {
         if (error.message.includes("foreign key") || error.message.includes("constraint")) {
           return res.status(400).json({
-            message: "Cannot delete table due to database constraints",
-            details: "This table is referenced by other records in the database",
+            message: "Impossible de supprimer cette table car elle a des commandes associées. Les commandes ont été archivées, veuillez réessayer.",
+            details: "Cette table était référencée par des commandes dans la base de données. Les commandes ont été automatiquement archivées.",
             error: error.message
           });
         }
         
         if (error.message.includes("has active orders")) {
           return res.status(400).json({
-            message: "Cannot delete table with active orders",
+            message: "Impossible de supprimer cette table car elle a des commandes actives",
+            details: "Veuillez d'abord terminer ou annuler toutes les commandes actives pour cette table.",
             error: error.message
           });
         }
