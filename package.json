@@ -9,6 +9,7 @@
   "scripts": {
     "dev": "cross-env NODE_ENV=development tsx server/index.ts",
     "build": "npm run build:frontend && npm run build:backend",
+    "build:frontend": "cd client && npm install && npm run build && cd .. && mkdir -p dist/public && cp -r client/dist/* dist/public/",
     "start": "cross-env NODE_ENV=production node dist/index.js",
     "generate-secrets": "node generate-secrets.cjs",
     "test-auth": "node test-auth.cjs",
