@@ -115,46 +115,25 @@ export function QRGenerator({ table }: QRGeneratorProps) {
           </div>
         )}
 
-        <div className="flex flex-col space-y-2">
-          <div className="flex space-x-2">
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={generateQR}
-              disabled={isGenerating}
-            >
-              <QrCode className="h-4 w-4 mr-1" />
-              Régénérer
-            </Button>
-            <Button
-              size="sm"
-              onClick={handleDownload}
-              disabled={!qrCodeUrl || isGenerating}
-            >
-              <Download className="h-4 w-4 mr-1" />
-              Télécharger
-            </Button>
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={() => {
-                const testUrl = generateTableQRData(table.number);
-                window.open(testUrl, '_blank');
-              }}
-            >
-              🔗 Tester
-            </Button>
-          </div>
-
+        <div className="flex space-x-2">
+          <Button
+            size="sm"
+            onClick={handleDownload}
+            disabled={!qrCodeUrl || isGenerating}
+            className="flex-1"
+          >
+            <Download className="h-4 w-4 mr-1" />
+            Télécharger
+          </Button>
           <Button
             onClick={handleDelete}
             disabled={deleteMutation.isPending}
             variant="destructive"
             size="sm"
-            className="w-full"
+            className="flex-1"
           >
             <Trash2 className="w-4 h-4 mr-2" />
-            {deleteMutation.isPending ? "Suppression..." : "Supprimer la table"}
+            {deleteMutation.isPending ? "Suppression..." : "Supprimer"}
           </Button>
         </div>
       </CardContent>
