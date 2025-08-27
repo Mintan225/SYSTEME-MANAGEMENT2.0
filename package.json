@@ -9,8 +9,8 @@
   "scripts": {
     "dev": "cross-env NODE_ENV=development tsx server/index.ts",
     "build": "npm run build:frontend && npm run build:backend",
-    "build:frontend": "cd frontend && npm install && npm run build && cd ..",
-    "postbuild": "node -e \"const fs=require('fs'),path=require('path');if(!fs.existsSync('dist/public'))fs.mkdirSync('dist/public',{recursive:true});fs.cpSync('frontend/dist',path.join('dist','public'),{recursive:true});\"",
+    "build:frontend": "vite build",
+    "postbuild": "echo 'Frontend files already built to dist/public by vite'",
     "build:backend": "echo 'Backend build skipped - using tsx in production'",
     "start": "cross-env NODE_ENV=production tsx server/index.ts",
     "generate-secrets": "node generate-secrets.cjs",
