@@ -103,7 +103,16 @@ async function initializeSystemSettings() {
   if (app.get("env") === "development") {
     await setupVite(app, server);
   } else {
-    serveStatic(app);
+    const staticPath = process.env.NODE_ENV === 'production' 
+      ? path.join(process.cwd(), "dist", "public")
+      : path.join(process.cwd(), "..", "public");
+    console.log("Serving static files from:", staticPath);
+    app.use(express.static(staticPath));
+
+    const uploadsPath = process.env.NODE_ENV === 'production'
+      ? path.join(process.cwd(), "dist", "public", "uploads")
+      : path.join(process.cwd(), "..", "public", "uploads");
+    app.use("/uploads", express.static(uploadsPath));
   }
 
   const port = 5000;
