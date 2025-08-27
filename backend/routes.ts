@@ -637,8 +637,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.delete("/api/tables/:id", authenticateToken, authorizePermission(["tables.delete"]), async (req, res) => {
     try {
       console.log(`[TABLE_DELETE_DEBUG] Attempting to delete table with ID: ${req.params.id}`);
-      console.log(`[TABLE_DELETE_DEBUG] User permissions:`, req.user?.permissions);
-      console.log(`[TABLE_DELETE_DEBUG] Request headers:`, JSON.stringify(req.headers, null, 2));
 
       const tableId = Number(req.params.id);
       if (isNaN(tableId)) {
@@ -655,29 +653,71 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: "Table not found" });
       }
 
+      // Vérifier s'il y a des commandes actives pour cette table
+      try {
+        const activeOrders = await storage.getActiveOrders();
+        const tableActiveOrders = activeOrders.filter(order => 
+          order.tableId === tableId && 
+          order.status !== 'completed' && 
+          order.status !== 'cancelled'
+        );
+
+        if (tableActiveOrders.length > 0) {
+          console.log(`[TABLE_DELETE_DEBUG] Table ${tableId} has ${tableActiveOrders.length} active orders`);
+          return res.status(400).json({
+            message: "Cannot delete table with active orders",
+            details: `This table has ${tableActiveOrders.length} active order(s). Please complete or cancel these orders first.`,
+            activeOrderIds: tableActiveOrders.map(o => o.id)
+          });
+        }
+      } catch (orderCheckError) {
+        console.error(`[TABLE_DELETE_DEBUG] Error checking active orders:`, orderCheckError);
+        return res.status(500).json({
+          message: "Error checking table dependencies",
+          error: orderCheckError instanceof Error ? orderCheckError.message : String(orderCheckError)
+        });
+      }
+
+      // Procéder à la suppression
       const success = await storage.deleteTable(tableId);
       console.log(`[TABLE_DELETE_DEBUG] Delete operation result:`, success);
 
       if (!success) {
         console.log(`[TABLE_DELETE_DEBUG] Table could not be deleted: ${tableId}`);
-        return res.status(500).json({ message: "Failed to delete table" });
+        return res.status(500).json({ 
+          message: "Failed to delete table",
+          details: "Database operation failed"
+        });
       }
 
       console.log(`[TABLE_DELETE_DEBUG] Table ${tableId} deleted successfully`);
       res.json({ message: "Table deleted successfully" });
     } catch (error) {
-      console.error("[TABLE_DELETE_DEBUG] Error deleting table:", error);
-      console.error("[TABLE_DELETE_DEBUG] Error stack:", error.stack);
+      console.error("[TABLE_DELETE_DEBUG] Unexpected error deleting table:", error);
+      console.error("[TABLE_DELETE_DEBUG] Error stack:", error instanceof Error ? error.stack : 'No stack trace');
 
-      if (error instanceof Error && error.message.includes("has active orders")) {
-        return res.status(400).json({
-          message: "Cannot delete table with active orders",
-          error: error.message
-        });
+      // Gestion spécifique des erreurs de contrainte de base de données
+      if (error instanceof Error) {
+        if (error.message.includes("foreign key") || error.message.includes("constraint")) {
+          return res.status(400).json({
+            message: "Cannot delete table due to database constraints",
+            details: "This table is referenced by other records in the database",
+            error: error.message
+          });
+        }
+        
+        if (error.message.includes("has active orders")) {
+          return res.status(400).json({
+            message: "Cannot delete table with active orders",
+            error: error.message
+          });
+        }
       }
+
       res.status(500).json({
         message: "Failed to delete table",
-        error: error instanceof Error ? error.message : String(error)
+        error: error instanceof Error ? error.message : String(error),
+        details: "An unexpected error occurred while deleting the table"
       });
     }
   });
