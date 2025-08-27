@@ -134,6 +134,16 @@ export function QRGenerator({ table }: QRGeneratorProps) {
               <Download className="h-4 w-4 mr-1" />
               Télécharger
             </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => {
+                const testUrl = generateTableQRData(table.number);
+                window.open(testUrl, '_blank');
+              }}
+            >
+              🔗 Tester
+            </Button>
           </div>
 
           <Button

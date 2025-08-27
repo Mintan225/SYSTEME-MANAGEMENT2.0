@@ -113,7 +113,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Route de redirection pour les QR codes /table/X -> /menu/X
   app.get("/table/:tableNumber", (req, res) => {
     const tableNumber = req.params.tableNumber;
-    // Servir directement l'application React au lieu de faire une redirection
+    
+    // Ajouter des headers pour éviter la mise en cache et améliorer la compatibilité
+    res.set({
+      'Cache-Control': 'no-cache, no-store, must-revalidate',
+      'Pragma': 'no-cache',
+      'Expires': '0',
+      'X-Frame-Options': 'DENY',
+      'X-Content-Type-Options': 'nosniff'
+    });
+
+    // Vérifier si c'est une requête mobile/scanner QR (User-Agent)
+    const userAgent = req.get('User-Agent') || '';
+    const isMobileScanner = /Mobile|Android|iPhone|iPad|QR|Scanner/i.test(userAgent);
+
+    // Si c'est un scanner mobile, faire une redirection explicite
+    if (isMobileScanner) {
+      return res.redirect(301, `/menu/${tableNumber}`);
+    }
+
+    // Pour les autres cas, servir l'application React
     const indexPath = path.join(process.cwd(), '..', 'dist', 'public', 'index.html');
     
     if (fs.existsSync(indexPath)) {
@@ -121,7 +140,43 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
     
     // Fallback: redirection si le fichier n'existe pas
-    res.redirect(`/menu/${tableNumber}`);
+    res.redirect(301, `/menu/${tableNumber}`);
+  });
+
+  // Route directe pour servir le menu (pour compatibilité avec tous les scanners)
+  app.get("/menu/:tableNumber", (req, res) => {
+    const tableNumber = req.params.tableNumber;
+    
+    // Headers pour éviter la mise en cache
+    res.set({
+      'Cache-Control': 'no-cache, no-store, must-revalidate',
+      'Pragma': 'no-cache',
+      'Expires': '0',
+      'X-Frame-Options': 'DENY',
+      'X-Content-Type-Options': 'nosniff'
+    });
+
+    const indexPath = path.join(process.cwd(), '..', 'dist', 'public', 'index.html');
+    
+    if (fs.existsSync(indexPath)) {
+      return res.sendFile(indexPath);
+    }
+    
+    // Fallback avec message d'erreur plus explicite
+    res.status(404).send(`
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <title>Menu Table ${tableNumber}</title>
+          <meta name="viewport" content="width=device-width, initial-scale=1">
+        </head>
+        <body style="font-family: Arial, sans-serif; text-align: center; padding: 20px;">
+          <h1>Menu temporairement indisponible</h1>
+          <p>La table ${tableNumber} n'est pas accessible pour le moment.</p>
+          <p>Veuillez contacter le personnel.</p>
+        </body>
+      </html>
+    `);
   });
 
   // Endpoint pour récupérer le menu d'une table spécifique (pour les QR codes)
@@ -132,7 +187,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         'Cache-Control': 'no-cache, no-store, must-revalidate',
         'Pragma': 'no-cache',
         'Expires': '0',
-        'Last-Modified': new Date().toUTCString()
+        'Last-Modified': new Date().toUTCString(),
+        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Methods': 'GET, OPTIONS',
+        'Access-Control-Allow-Headers': 'Content-Type'
       });
 
       const tableNumber = parseInt(req.params.tableNumber);

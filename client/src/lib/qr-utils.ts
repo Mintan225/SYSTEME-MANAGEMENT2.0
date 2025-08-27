@@ -33,8 +33,18 @@ export async function generateQRCode(
 }
 
 export function generateTableQRData(tableNumber: number, baseUrl?: string): string {
-  // Utilise le format /table/ qui redirige vers /menu/ pour les QR codes
-  const url = baseUrl || `${window.location.origin}/table/${tableNumber}`;
+  // Générer l'URL avec le protocole HTTPS pour une meilleure compatibilité
+  let url;
+  
+  if (baseUrl) {
+    url = baseUrl;
+  } else {
+    // Utiliser HTTPS par défaut pour éviter les problèmes de sécurité sur mobile
+    const origin = window.location.origin.replace('http://', 'https://');
+    url = `${origin}/menu/${tableNumber}`;
+  }
+  
+  // S'assurer que l'URL est bien formatée
   return url;
 }
 
@@ -43,7 +53,20 @@ export async function generateTableQRCode(
   options?: QRCodeOptions
 ): Promise<string> {
   const qrData = generateTableQRData(tableNumber);
-  return generateQRCode(qrData, options);
+  
+  // Paramètres optimisés pour une meilleure lisibilité sur tous les appareils
+  const optimizedOptions = {
+    width: 300, // Taille plus grande pour une meilleure lecture
+    margin: 4,  // Marge plus importante
+    color: {
+      dark: '#000000',
+      light: '#FFFFFF',
+    },
+    errorCorrectionLevel: 'M', // Niveau de correction d'erreur moyen
+    ...options,
+  };
+  
+  return generateQRCode(qrData, optimizedOptions);
 }
 
 export function downloadQRCode(dataUrl: string, filename: string) {
