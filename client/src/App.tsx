@@ -126,9 +126,7 @@ function Router() {
       <Route path="/table/:tableNumber" component={TableRedirect} />
       
       <Route path="/menu/:tableNumber">
-        <PublicRoute>
-          <CustomerMenu />
-        </PublicRoute>
+        <CustomerMenu />
       </Route>
       
       <Route path="/notification-demo" component={NotificationDemo} />
