@@ -10,7 +10,7 @@
     "dev": "cross-env NODE_ENV=development tsx server/index.ts",
     "build": "npm run build:frontend && npm run build:backend",
     "build:frontend": "cd frontend && npm install && npm run build && cd ..",
-    "postbuild": "mkdir -p dist/public && cp -r frontend/dist/* dist/public/ || (md dist\\public >nul 2>&1 & xcopy /e /y frontend\\dist\\* dist\\public\\)",
+    "postbuild": "mkdir -p dist/public && cp -r frontend/dist/* dist/public/",
     "build:backend": "esbuild server/index.ts --bundle --platform=node --target=node18 --format=esm --outfile=dist/index.js --external:pg --external:drizzle-orm --external:@babel/preset-typescript/package.json --external:../pkg",
     "start": "cross-env NODE_ENV=production node dist/index.js",
     "generate-secrets": "node generate-secrets.cjs",
